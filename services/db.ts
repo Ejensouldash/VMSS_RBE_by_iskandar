@@ -658,3 +658,36 @@ export const processBackendCallback = async (data: IPay88CallbackData): Promise<
 
   return { success: true, message: "RECEIVEOK" };
 };
+// --- TAMBAHAN: BULK SAVE (PENYELAMAT 251 TRANSAKSI) ---
+
+export const saveBulkTransactions = (newTxs: Transaction[]) => {
+  // 1. Ambil data sedia ada
+  const currentTxs = getTransactions();
+  
+  // 2. Gabung data baru + data lama
+  const updatedTxs = [...newTxs, ...currentTxs];
+  
+  // 3. Simpan SEKALI SAHAJA ke LocalStorage
+  localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(updatedTxs));
+  
+  // 4. Hantar ke Cloud (Sync)
+  // Kita hantar updatedTxs terus supaya cloud sync tepat
+  pushToCloud(STORAGE_KEYS.TRANSACTIONS, updatedTxs);
+  
+  return updatedTxs.length;
+};
+
+export const saveBulkStock = (stockUpdates: Record<string, number>) => {
+  // 1. Ambil data stok sedia ada
+  const stockData = localStorage.getItem(STORAGE_KEYS.STOCK_COUNTS);
+  const stockMap: Record<string, number> = stockData ? JSON.parse(stockData) : {};
+  
+  // 2. Update semua stok dalam memory dulu
+  Object.keys(stockUpdates).forEach(slotId => {
+      stockMap[slotId] = stockUpdates[slotId];
+  });
+  
+  // 3. Simpan SEKALI SAHAJA
+  localStorage.setItem(STORAGE_KEYS.STOCK_COUNTS, JSON.stringify(stockMap));
+  pushToCloud(STORAGE_KEYS.STOCK_COUNTS, stockMap);
+};

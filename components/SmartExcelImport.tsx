@@ -4,8 +4,9 @@ import {
   Upload, FileSpreadsheet, CheckCircle, RefreshCw, Cpu, 
   BarChart3, ArrowRight, Zap, Loader2 
 } from 'lucide-react';
-import { saveTransaction, updateSlotConfig, getInventory, notify } from '../services/db'; 
-import { VM_CONFIG } from '../lib/vm-config';
+// IMPORT FUNGSI BARU DI SINI
+import { saveBulkTransactions, saveBulkStock, getInventory, notify } from '../services/db'; 
+import { Transaction } from '../types';
 
 interface SmartExcelImportProps {
   onDataImported: (data: any[], inventory: any[]) => void;
@@ -19,27 +20,20 @@ const MACHINE_NAME_MAP: Record<string, string> = {
     "HQ-Pantry": "Rozita HQ - Pantry"
 };
 
-// --- 🧠 AI PARSER ENGINE V7 (SERVERLESS EDITION) ---
+// --- 🧠 AI PARSER ENGINE V7 ---
 const GEMINI_PARSER = {
   detectHeaders: (headers: string[]) => {
-    const map = {
-      machine: -1, product: -1, amount: -1, date: -1, time: -1, payment: -1
-    };
-
+    const map = { machine: -1, product: -1, amount: -1, date: -1, time: -1, payment: -1 };
     headers.forEach((h, idx) => {
-      if (!h) return; // Safety Check untuk header kosong
+      if (!h) return;
       const textClean = h.toLowerCase().trim(); 
       const textNoSpace = textClean.replace(/[^a-z0-9]/g, '');
 
       if (textClean === 'user name' || textClean === 'username') map.machine = idx;
       else if (map.machine === -1 && ['terminalid', 'merchantname', 'machine', 'mesin'].some(k => textNoSpace.includes(k))) map.machine = idx;
-      
       else if (['proddesc', 'product', 'item', 'produk'].some(k => textNoSpace.includes(k))) map.product = idx;
-      
       else if (['originalamount', 'amount', 'price', 'harga', 'total'].some(k => textNoSpace.includes(k)) && !textNoSpace.includes('qty')) map.amount = idx;
-      
       else if (['paymentmethod', 'paytype', 'kaedah'].some(k => textNoSpace.includes(k))) map.payment = idx;
-
       else if (['date', 'transdate', 'tradetime', 'datetime', 'time'].some(k => textNoSpace.includes(k))) {
          if (textNoSpace === 'date' || textNoSpace === 'transdate') map.date = idx;
          else if (map.date === -1) map.time = idx;
@@ -66,6 +60,18 @@ const GEMINI_PARSER = {
             return date_info.toISOString();
         }
         const str = raw.toString().trim();
+        // Support format CSV "04/01/2026 09:03"
+        if (str.includes('/')) {
+            const parts = str.split(/[\/\s:]/); // Split by / space or :
+            if (parts.length >= 3) {
+                // Assume DD/MM/YYYY
+                const day = parts[0];
+                const month = parts[1];
+                const year = parts[2];
+                const time = str.split(' ')[1] || '12:00:00';
+                return `${year}-${month}-${day}T${time}`;
+            }
+        }
         if (str.match(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/)) return str.replace(' ', 'T');
         const d = new Date(str);
         if (!isNaN(d.getTime())) return d.toISOString();
@@ -86,7 +92,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
   const [files, setFiles] = useState<File[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [importStats, setImportStats] = useState<any>(null);
-  const [parsedRows, setParsedRows] = useState<any[]>([]);
+  const [parsedRows, setParsedRows] = useState<Transaction[]>([]);
   const [manualDate, setManualDate] = useState(new Date().toISOString().split('T')[0]);
 
   useEffect(() => {
@@ -96,7 +102,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
 
   const processFiles = async (fileList: File[]) => {
     setIsProcessing(true);
-    let allTransactions: any[] = [];
+    let allTransactions: Transaction[] = [];
     let grandTotalAmount = 0;
 
     for (const file of fileList) {
@@ -111,7 +117,6 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
 
         rawData.forEach((row: any, rowIndex) => {
             const firstVal = Object.values(row)[0] as string;
-            // Safety check: pastikan string wujud sebelum check .toLowerCase
             if (firstVal && typeof firstVal === 'string' && (firstVal.toLowerCase().includes('total') || firstVal.toLowerCase().includes('jumlah'))) return;
 
             let amount = 0;
@@ -122,8 +127,6 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 let rawProdName = 'Unknown Product';
                 if (headerMap.product !== -1) rawProdName = row[headers[headerMap.product]];
                 else rawProdName = row['ProdDesc'] || row['Product'] || 'Item';
-
-                // Pastikan nama produk string
                 rawProdName = rawProdName ? String(rawProdName) : 'Unknown Product';
 
                 let timestamp = `${fileDateStr}T12:00:00`;
@@ -133,7 +136,6 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 let rawMachine = 'Unknown';
                 if (headerMap.machine !== -1) rawMachine = row[headers[headerMap.machine]];
                 else rawMachine = row['User Name'] || row['Username'] || row['TerminalID'] || 'Unknown';
-                
                 const finalMachineName = GEMINI_PARSER.resolveMachineName(rawMachine);
 
                 let payMethod = 'Cash';
@@ -152,12 +154,11 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     paymentMethod: payMethod,
                     timestamp: timestamp,
                     machineId: finalMachineName,
-                    sourceFile: file.name
+                    slotId: 'UNKNOWN' // Will be processed in commit
                 });
                 grandTotalAmount += amount;
             }
         });
-
       } catch (err) {
         console.error(`❌ Gagal baca fail ${file.name}:`, err);
       }
@@ -170,59 +171,56 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
     setIsProcessing(false);
   };
 
-  // --- 🔥 FIXED: COMMIT FUNCTION DENGAN SAFETY CHECK ---
+  // --- 🔥 LOGIK BULK SAVE (PENYELESAIAN MASALAH 100 DATA) ---
   const commitImport = async () => {
     if (parsedRows.length === 0) return;
     setIsProcessing(true);
 
     try {
-        let successCount = 0;
-        const currentInventory = getInventory(); // Dapatkan stok semasa dari Local/Cloud
-
-        // Proses setiap baris dalam memory browser
-        for (const tx of parsedRows) {
-            
-            // --- SAFETY FIX DI SINI ---
-            // Kita pastikan .productName wujud dulu sebelum .toLowerCase()
-            // Kalau nama kosong, kita guna string kosong ''
+        const currentInventory = getInventory();
+        const stockUpdates: Record<string, number> = {};
+        
+        // 1. Proses mapping data dalam MEMORY sahaja dulu
+        const finalTransactions = parsedRows.map(tx => {
             const txProdNameSafe = (tx.productName || '').toString().toLowerCase().trim();
-
             const matchedSlot = currentInventory.find(s => {
                 const slotNameSafe = (s.productName || '').toString().toLowerCase().trim();
-                
-                // Kalau slot name dalam database kosong, skip
-                if (!slotNameSafe) return false;
-
-                return slotNameSafe === txProdNameSafe || txProdNameSafe.includes(slotNameSafe);
+                return slotNameSafe && (slotNameSafe === txProdNameSafe || txProdNameSafe.includes(slotNameSafe));
             });
 
             if (matchedSlot) {
-               tx.slotId = matchedSlot.id; // Link kan slot ID
-               const newStock = Math.max(0, matchedSlot.currentStock - 1);
-               // Update DB terus (Sync ke Supabase automatik via db.ts)
-               updateSlotConfig(matchedSlot.id, { currentStock: newStock });
-            } else {
-               tx.slotId = 'UNKNOWN';
+                // Kira stok baru tapi simpan dalam object dulu, jangan tulis DB lagi
+                const currentCount = stockUpdates[matchedSlot.id] !== undefined 
+                    ? stockUpdates[matchedSlot.id] 
+                    : matchedSlot.currentStock;
+                
+                stockUpdates[matchedSlot.id] = Math.max(0, currentCount - 1);
+                
+                return { ...tx, slotId: matchedSlot.id };
             }
+            return { ...tx, slotId: 'UNKNOWN' };
+        });
 
-            // Simpan Transaksi (Sync ke Supabase automatik via db.ts)
-            saveTransaction(tx);
-            successCount++;
+        // 2. Simpan Transaksi SEKALI HARUNG (251 data sekaligus)
+        saveBulkTransactions(finalTransactions);
+
+        // 3. Simpan Stok SEKALI HARUNG
+        if (Object.keys(stockUpdates).length > 0) {
+            saveBulkStock(stockUpdates);
         }
 
-        // Siap!
-        notify(`Berjaya import ${successCount} transaksi!`, 'success');
+        notify(`Berjaya import ${finalTransactions.length} transaksi!`, 'success');
         
-        if (onDataImported) onDataImported(parsedRows, getInventory());
+        if (onDataImported) onDataImported(finalTransactions, getInventory());
         setParsedRows([]);
         setFiles([]);
         setImportStats(null);
         
-        // Refresh page sikit untuk reflect data
+        // Refresh
         setTimeout(() => window.location.reload(), 1500);
 
     } catch (e) {
-        console.error("IMPORT ERROR:", e); // Log error penuh
+        console.error("IMPORT ERROR:", e);
         notify("Gagal simpan data. Sila semak console.", 'error');
     }
     setIsProcessing(false);
@@ -256,8 +254,8 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             <FileSpreadsheet size={24} />
         </div>
         <div>
-            Smart Import V7 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-mono">Cloud Edition</span>
-            <p className="text-xs text-slate-500 mt-0.5">Serverless Processing • Auto-Translate Engine Active</p>
+            Smart Import V8 <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200 ml-2 font-bold">Bulk Speed</span>
+            <p className="text-xs text-slate-500 mt-0.5">Memproses 250+ data serentak tanpa error.</p>
         </div>
       </h3>
       
@@ -277,7 +275,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     <div>
                         <Upload size={40} className="text-indigo-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
                         <p className="text-slate-700 font-bold text-lg">Drop fail Excel di sini</p>
-                        <p className="text-xs text-slate-400 mt-2">Support: .xlsx, .csv</p>
+                        <p className="text-xs text-slate-400 mt-2">Support: .xlsx, .csv (Unlimited Rows)</p>
                     </div>
                 )}
             </div>
@@ -287,8 +285,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             {isProcessing ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-slate-500 bg-slate-50 rounded-xl animate-pulse border border-slate-200">
                     <Loader2 className="animate-spin mb-3 text-indigo-500" size={32} />
-                    <p className="font-medium">Memproses Data...</p>
-                    <p className="text-xs text-slate-400 mt-1">Sila tunggu sebentar</p>
+                    <p className="font-medium">Memproses {importStats ? importStats.totalRows : ''} Data...</p>
                 </div>
             ) : parsedRows.length > 0 ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -312,7 +309,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                         onClick={commitImport}
                         className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 px-6 rounded-xl shadow-xl flex items-center justify-center gap-3 transition-transform active:scale-95"
                     >
-                        <span>SAHKAN & UPLOAD KE CLOUD</span>
+                        <span>SAHKAN (MASUK SEMUA)</span>
                         <ArrowRight size={20} />
                     </button>
                 </div>
