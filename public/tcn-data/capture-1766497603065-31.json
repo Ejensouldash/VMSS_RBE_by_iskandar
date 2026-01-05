@@ -1,0 +1,14 @@
+{
+  "url": "https://os.ourvend.com/SaleMonitor/SaleInfo/",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "MId": "2509150091",
+    "MiAlias": "VM CHERAS TINGKAT 4",
+    "MiAddress": "",
+    "SaleAmount": 8,
+    "SaleQuantity": 3,
+    "Collect": 0,
+    "Change": 0
+  }
+}

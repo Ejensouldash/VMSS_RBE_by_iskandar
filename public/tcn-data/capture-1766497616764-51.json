@@ -1,0 +1,19 @@
+{
+  "url": "https://os.ourvend.com/SaleSummarize/GetMachineID",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": [
+    {
+      "MuMachineID": "2509150088",
+      "MiAlias": "VM BANGI"
+    },
+    {
+      "MuMachineID": "2509150091",
+      "MiAlias": "VM CHERAS TINGKAT 4"
+    },
+    {
+      "MuMachineID": "2509150093",
+      "MiAlias": "VM CHERAS TINGKAT 5"
+    }
+  ]
+}

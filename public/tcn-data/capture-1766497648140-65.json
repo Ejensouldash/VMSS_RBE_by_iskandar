@@ -1,0 +1,143 @@
+{
+  "url": "https://os.ourvend.com/SaleSummarize/GetProductNameList",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": [
+    {
+      "PrID": "FDE1DD34-4104-44E3-A9A3-E8B5351C422F",
+      "PrName": "Maggi Instant Noodles Big Curry Flavoured"
+    },
+    {
+      "PrID": "A9E86E30-4E21-4CB4-9EAC-0233D570E8F6",
+      "PrName": "Seasons Drinks Ice Lemon Tea"
+    },
+    {
+      "PrID": "78423B29-D86D-4629-AF87-D254E6FCE075",
+      "PrName": "Wonda Coffee Latte 240ml"
+    },
+    {
+      "PrID": "F940A892-73B1-4AB6-A6F6-E052D68F66C5",
+      "PrName": "NESCAFE Original  Milk Coffee 240ml"
+    },
+    {
+      "PrID": "FEA32FE6-B2F3-4E1A-AC49-EE7F21519DB0",
+      "PrName": "Maggi Cup Kari 58g"
+    },
+    {
+      "PrID": "59B62F28-B6A1-4814-AB81-ACF988220272",
+      "PrName": "Samyang Hot Chicken Ramen Cheese"
+    },
+    {
+      "PrID": "16817626-A7CF-4FA7-9188-44A47CE777BA",
+      "PrName": "SEASONS Soya Bean"
+    },
+    {
+      "PrID": "7A478419-1847-4506-8C38-5107FACE2B60",
+      "PrName": "Wonda Coffee Mocha 240ml"
+    },
+    {
+      "PrID": "38A0D422-6A5C-4870-874B-04C548A82147",
+      "PrName": "TEH TARIK ORI 240ML"
+    },
+    {
+      "PrID": "14FC99E1-1B8A-44F3-96F8-EA359B5FC584",
+      "PrName": "100PLUS Original 325ml"
+    },
+    {
+      "PrID": "91F7B925-631C-4294-9FC6-DC43230FA030",
+      "PrName": "OLIGO Belgian Cocoa 240ml"
+    },
+    {
+      "PrID": "50C27D94-BB04-4A41-B292-09F230A6722D",
+      "PrName": "OREO"
+    },
+    {
+      "PrID": "40D95B6D-C160-4E55-9C90-C71F116C97A5",
+      "PrName": "Sunquick Air 115ml"
+    },
+    {
+      "PrID": "36D9D0C4-6FA1-4059-896D-2A6863FE5A52",
+      "PrName": "Goodday Chocolate 200ml"
+    },
+    {
+      "PrID": "CCF2428F-FDAD-43F7-B135-010E3021CC22",
+      "PrName": "Goodday FullCream 200ml"
+    },
+    {
+      "PrID": "2EDC5C45-35E0-4AD9-A907-92EABF5F39CE",
+      "PrName": "NESTLE Milo ActivGo UHT Promo Pack 200ml "
+    },
+    {
+      "PrID": "66B212C4-4391-4C66-B5E8-B10B80DCE854",
+      "PrName": "Spritzer Mineral Water 550ml"
+    },
+    {
+      "PrID": "41602826-E089-4CA8-83E2-E13563A92365",
+      "PrName": "Pepsi Original 320ml"
+    },
+    {
+      "PrID": "AD1023A9-67F2-4FD7-9FED-725377BB7F04",
+      "PrName": "Mountain Dew 320ml"
+    },
+    {
+      "PrID": "9306693E-DDA7-4CAC-8DD3-A5757F0B4E75",
+      "PrName": "Coca Cola 320ml"
+    },
+    {
+      "PrID": "BF1DAC7E-F714-4A00-A3BD-41A860F523C1",
+      "PrName": "Kickapoo 320ml"
+    },
+    {
+      "PrID": "7FEF084E-ABC1-4E97-A40A-7C96DA481883",
+      "PrName": "Pepsi Zero 320ml"
+    },
+    {
+      "PrID": "6B985E77-9CAD-444F-8907-DAC367D302ED",
+      "PrName": "Biskut tiger Susu Mini 75G"
+    },
+    {
+      "PrID": "86794024-5DD6-47CC-B5D2-B1A4DBED7955",
+      "PrName": "Instant spagetti Mix Flavour 75G"
+    },
+    {
+      "PrID": "6E6F8AB9-DFE9-41FA-95FF-A97CF00DA21E",
+      "PrName": "Ombak Natural Mineral Water 500ML"
+    },
+    {
+      "PrID": "36CD4F45-9F27-4729-9C05-B2BFA2E85EDC",
+      "PrName": "Cocopie"
+    },
+    {
+      "PrID": "B3AE6BA4-0315-4927-AA8D-ABC1ED07B7A7",
+      "PrName": "Chipsmore Mini campur flavour 72G"
+    },
+    {
+      "PrID": "1833E2F5-0378-4A09-A631-B2AB3859171E",
+      "PrName": "7 Up 320ml"
+    },
+    {
+      "PrID": "AD6BCF81-406A-4B2E-B0FB-1DD7A7B829C9",
+      "PrName": "Tropicana Twister Oren 355ml"
+    },
+    {
+      "PrID": "541AF463-8D41-4499-87AA-88CCAFE07844",
+      "PrName": "Desa Mineral Water 550ml"
+    },
+    {
+      "PrID": "45A55CAC-A2A3-405A-B8CB-46BD7ACDE9B0",
+      "PrName": "Nips"
+    },
+    {
+      "PrID": "CD9DCFED-63D9-48BA-95A5-D0F43AA4FB01",
+      "PrName": "Biskut Munchys Lexus 418G"
+    },
+    {
+      "PrID": "0D8047F9-8837-4C42-9EDA-3E6CB30F30EA",
+      "PrName": "NABATI Wafer Mix Flavour Cheese n Strawberry 20G"
+    },
+    {
+      "PrID": "FE49490A-41DA-4055-B27B-EFB420969020",
+      "PrName": "Vida Vit C Lemon 1000mg 325ml"
+    }
+  ]
+}

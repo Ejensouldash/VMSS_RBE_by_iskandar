@@ -1,0 +1,6 @@
+{
+  "url": "https://os.ourvend.com/AssetsManage/GetStringMachineGroup",
+  "status": 200,
+  "contentType": "text/html; charset=utf-8",
+  "body": "[{\"MGID\":\"61af8d4a-6f64-455f-b374-9562c832d6ab\",\"MGName\":\"Default unit\",\"MGManageUser\":\"\"}]"
+}

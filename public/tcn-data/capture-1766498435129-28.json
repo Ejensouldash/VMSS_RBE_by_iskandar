@@ -1,0 +1,25 @@
+{
+  "url": "https://os.ourvend.com/SaleMonitor/AmountReceivable",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "total": 1,
+    "page": 1,
+    "records": 2,
+    "rows": [
+      {
+        "MachineID": "2509150091",
+        "Amount": 0,
+        "StateTime": "2025-12-13 12:22:33",
+        "EndTime": ""
+      },
+      {
+        "MachineID": "2509150091",
+        "Amount": 0,
+        "StateTime": "2025-12-13 12:24:58",
+        "EndTime": ""
+      }
+    ],
+    "UserData": null
+  }
+}

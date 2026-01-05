@@ -1,0 +1,46 @@
+{
+  "url": "https://os.ourvend.com/SaleMonitor/SaleInfoJson",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "total": 100,
+    "page": 1,
+    "records": 100000,
+    "rows": [
+      {
+        "TrID": 23757499,
+        "TrCoilID": "23",
+        "TrPayType": 255,
+        "TrBarCode": "",
+        "TrSalePrice": 2.5,
+        "TrResult": 0,
+        "TrTime": "/Date(1766446582000)/",
+        "AddTime": "2025-12-23 07:36:28",
+        "PrName": null
+      },
+      {
+        "TrID": 23826762,
+        "TrCoilID": "14",
+        "TrPayType": 255,
+        "TrBarCode": "",
+        "TrSalePrice": 2,
+        "TrResult": 0,
+        "TrTime": "/Date(1766451739000)/",
+        "AddTime": "2025-12-23 09:02:25",
+        "PrName": null
+      },
+      {
+        "TrID": 24233420,
+        "TrCoilID": "9",
+        "TrPayType": 255,
+        "TrBarCode": "",
+        "TrSalePrice": 3.5,
+        "TrResult": 0,
+        "TrTime": "/Date(1766474127000)/",
+        "AddTime": "2025-12-23 15:15:33",
+        "PrName": null
+      }
+    ],
+    "UserData": null
+  }
+}

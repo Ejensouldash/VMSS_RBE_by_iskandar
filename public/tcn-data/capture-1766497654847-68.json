@@ -1,0 +1,67 @@
+{
+  "url": "https://os.ourvend.com/SaleSummarize/SaleMachineID",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "code": 0,
+    "msg": null,
+    "page": 1,
+    "records": 3,
+    "total": 1,
+    "rows": [
+      {
+        "MGName": "Default unit",
+        "MachineID": "2509150088",
+        "MachineName": "2509150088",
+        "colum1": "0.00",
+        "colum2": "0",
+        "colum3": "275.40",
+        "colum4": "101",
+        "colum5": "0.00",
+        "colum0": "275.40",
+        "colum00": "101",
+        "colum6": "73.577344376168848517232166710"
+      },
+      {
+        "MGName": "Default unit",
+        "MachineID": "2509150091",
+        "MachineName": "2509150091",
+        "colum1": "0.00",
+        "colum2": "0",
+        "colum3": "72.10",
+        "colum4": "23",
+        "colum5": "0.00",
+        "colum0": "72.10",
+        "colum00": "23",
+        "colum6": "19.262623563986107400480897680"
+      },
+      {
+        "MGName": "Default unit",
+        "MachineID": "2509150093",
+        "MachineName": "VM CHERAS TINGKAT 5",
+        "colum1": "0.00",
+        "colum2": "0",
+        "colum3": "26.80",
+        "colum4": "9",
+        "colum5": "0.00",
+        "colum0": "26.80",
+        "colum00": "9",
+        "colum6": "7.1600320598450440822869356100"
+      },
+      {
+        "MGName": "",
+        "MachineID": "",
+        "MachineName": "Total",
+        "colum1": "0.00",
+        "colum2": "0",
+        "colum3": "374.30",
+        "colum4": "133",
+        "colum5": "0.00",
+        "colum0": "374.30",
+        "colum00": "133",
+        "colum6": "100"
+      }
+    ],
+    "UserData": null
+  }
+}

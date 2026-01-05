@@ -1,0 +1,17 @@
+{
+  "url": "https://os.ourvend.com/SaleDetail/AmountListJson",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": [
+    {
+      "PayID": 255,
+      "PayName": "其他",
+      "TotalAmount": "235.10",
+      "TotalCount": 81,
+      "TrAmount": "0",
+      "TrCount": null,
+      "Collect": null,
+      "Change": null
+    }
+  ]
+}

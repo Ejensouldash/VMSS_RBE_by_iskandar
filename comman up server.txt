@@ -1,0 +1,3 @@
+npm install
+node bridge-server.js
+npm run dev

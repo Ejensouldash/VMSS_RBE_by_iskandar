@@ -1,0 +1,6 @@
+{
+  "url": "https://os.ourvend.com/SaleSummarize/getSession",
+  "status": 200,
+  "contentType": "text/html; charset=utf-8",
+  "body": "True"
+}

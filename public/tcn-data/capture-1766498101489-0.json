@@ -1,0 +1,6 @@
+{
+  "url": "https://os.ourvend.com/Account/GetPubKey",
+  "status": 200,
+  "contentType": "text/html; charset=utf-8",
+  "body": "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCC0hrRIjb3noDWNtbDpANbjt5I\r\nwu2NFeDwU16Ec87ToqeoIm2KI+cOs81JP9aTDk/jkAlU97mN8wZkEMDr5utAZtMV\r\nht7GLX33Wx9XjqxUsDfsGkqNL8dXJklWDu9Zh80Ui2Ug+340d5dZtKtd+nv09QZq\r\nGjdnSp9PTfFDBY133QIDAQAB"
+}

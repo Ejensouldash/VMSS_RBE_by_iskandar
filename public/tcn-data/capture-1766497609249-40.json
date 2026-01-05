@@ -1,0 +1,19 @@
+{
+  "url": "https://os.ourvend.com/SaleMonitor/ReplenishmentJson",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "total": 0,
+    "page": 1,
+    "records": 0,
+    "rows": [
+      {
+        "MachineID": "2509150088",
+        "PrName": null,
+        "Capacity": 4,
+        "Time": "2025-12-23"
+      }
+    ],
+    "UserData": null
+  }
+}

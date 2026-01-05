@@ -1,0 +1,114 @@
+{
+  "url": "https://os.ourvend.com/YSTemplet/GetMenu",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": [
+    {
+      "MenuPers": [
+        {
+          "MenuPers": null,
+          "MenuNo": "11",
+          "MenuName": "状态监控",
+          "MenuLinkUrl": "/OperateMonitor/Index"
+        },
+        {
+          "MenuPers": null,
+          "MenuNo": "12",
+          "MenuName": "销售监控",
+          "MenuLinkUrl": "/SaleMonitor/Index"
+        }
+      ],
+      "MenuNo": "1",
+      "MenuName": "运营监控",
+      "MenuLinkUrl": "/OperateMonitor/Index"
+    },
+    {
+      "MenuPers": [
+        {
+          "MenuPers": null,
+          "MenuNo": "21",
+          "MenuName": "销售明细",
+          "MenuLinkUrl": "/SaleDetail/Index"
+        },
+        {
+          "MenuPers": null,
+          "MenuNo": "25",
+          "MenuName": "机器报警",
+          "MenuLinkUrl": "/Alarm/Index"
+        },
+        {
+          "MenuPers": null,
+          "MenuNo": "26",
+          "MenuName": "非现金流水记录",
+          "MenuLinkUrl": "/NonCashFlowRecord/Index"
+        }
+      ],
+      "MenuNo": "2",
+      "MenuName": "历史记录",
+      "MenuLinkUrl": "/SaleDetail/Index"
+    },
+    {
+      "MenuPers": [
+        {
+          "MenuPers": null,
+          "MenuNo": "42",
+          "MenuName": "机柜管理",
+          "MenuLinkUrl": "/AssetsManage/Index"
+        },
+        {
+          "MenuPers": null,
+          "MenuNo": "43",
+          "MenuName": "货道管理",
+          "MenuLinkUrl": "/Selection/Index"
+        },
+        {
+          "MenuPers": null,
+          "MenuNo": "45",
+          "MenuName": "配置参数",
+          "MenuLinkUrl": "/SetParam/Index"
+        }
+      ],
+      "MenuNo": "4",
+      "MenuName": "货机管理",
+      "MenuLinkUrl": "/MachineGroup/Index"
+    },
+    {
+      "MenuPers": [
+        {
+          "MenuPers": null,
+          "MenuNo": "52",
+          "MenuName": "商品类别",
+          "MenuLinkUrl": "/CommodityType/Index"
+        },
+        {
+          "MenuPers": null,
+          "MenuNo": "53",
+          "MenuName": "厂商管理",
+          "MenuLinkUrl": "/VendorManage/Index"
+        },
+        {
+          "MenuPers": null,
+          "MenuNo": "54",
+          "MenuName": "商品信息",
+          "MenuLinkUrl": "/CommodityInfo/Index"
+        }
+      ],
+      "MenuNo": "5",
+      "MenuName": "商品管理",
+      "MenuLinkUrl": "/CommodityType/Index"
+    },
+    {
+      "MenuPers": [
+        {
+          "MenuPers": null,
+          "MenuNo": "61",
+          "MenuName": "销售汇总统计",
+          "MenuLinkUrl": "/SaleSummarize/Index"
+        }
+      ],
+      "MenuNo": "6",
+      "MenuName": "统计分析",
+      "MenuLinkUrl": "/SaleSummarize/Index"
+    }
+  ]
+}

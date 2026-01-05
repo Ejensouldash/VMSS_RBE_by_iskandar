@@ -1,0 +1,57 @@
+{
+  "url": "https://os.ourvend.com/SaleMonitor/SaleInfoJson/?firstload=0",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "total": 100,
+    "page": 1,
+    "records": 100000,
+    "rows": [
+      {
+        "TrID": 23952139,
+        "TrCoilID": "16",
+        "TrPayType": 255,
+        "TrBarCode": "",
+        "TrSalePrice": 3.8,
+        "TrResult": 0,
+        "TrTime": "/Date(1766459904000)/",
+        "AddTime": "2025-12-23 11:18:30",
+        "PrName": null
+      },
+      {
+        "TrID": 24113647,
+        "TrCoilID": "21",
+        "TrPayType": 255,
+        "TrBarCode": "",
+        "TrSalePrice": 3,
+        "TrResult": 0,
+        "TrTime": "/Date(1766466915000)/",
+        "AddTime": "2025-12-23 13:15:21",
+        "PrName": null
+      },
+      {
+        "TrID": 24235077,
+        "TrCoilID": "34",
+        "TrPayType": 255,
+        "TrBarCode": "",
+        "TrSalePrice": 2.5,
+        "TrResult": 0,
+        "TrTime": "/Date(1766474223000)/",
+        "AddTime": "2025-12-23 15:17:08",
+        "PrName": null
+      },
+      {
+        "TrID": 24350002,
+        "TrCoilID": "44",
+        "TrPayType": 255,
+        "TrBarCode": "",
+        "TrSalePrice": 4,
+        "TrResult": 0,
+        "TrTime": "/Date(1766480956000)/",
+        "AddTime": "2025-12-23 17:09:22",
+        "PrName": null
+      }
+    ],
+    "UserData": null
+  }
+}

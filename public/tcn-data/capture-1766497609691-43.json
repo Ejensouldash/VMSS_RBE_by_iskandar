@@ -1,0 +1,12 @@
+{
+  "url": "https://os.ourvend.com/SaleMonitor/SaleInfoJson",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "total": 100,
+    "page": 1,
+    "records": 100000,
+    "rows": [],
+    "UserData": null
+  }
+}

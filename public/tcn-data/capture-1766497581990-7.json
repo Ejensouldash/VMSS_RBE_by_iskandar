@@ -1,0 +1,18 @@
+{
+  "url": "https://os.ourvend.com/FlowCardToManager/GetIccIdEarlyWarningRemid",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "errCode": 0,
+    "data": {
+      "Iccids": null,
+      "mids": null,
+      "TreatRenewCount": 0,
+      "TreatRechargeCount": 0,
+      "CannotRenewCount": 0,
+      "ExpiredCount": 0,
+      "IsRemind": false
+    },
+    "msg": "Success"
+  }
+}

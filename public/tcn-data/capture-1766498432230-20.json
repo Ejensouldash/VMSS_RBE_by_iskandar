@@ -1,0 +1,41 @@
+{
+  "url": "https://os.ourvend.com/SaleDetail/MachineListJsoin",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "total": 1,
+    "page": 1,
+    "records": 1,
+    "rows": [
+      {
+        "rowId": 1,
+        "BoxId": null,
+        "UserName": null,
+        "MGroupName": "Default unit",
+        "MachineID": "2509150091",
+        "MachineName": "VM CHERAS TINGKAT 4",
+        "TotalAmount": "8.00",
+        "TotalCount": 3,
+        "TrAmount": "0",
+        "TrCount": null,
+        "Collect": 0,
+        "Change": 0
+      },
+      {
+        "rowId": 2,
+        "BoxId": null,
+        "UserName": null,
+        "MGroupName": "Default unit",
+        "MachineID": "2509150093",
+        "MachineName": "VM CHERAS TINGKAT 5",
+        "TotalAmount": "13.30",
+        "TotalCount": 4,
+        "TrAmount": "0",
+        "TrCount": null,
+        "Collect": 0,
+        "Change": 0
+      }
+    ],
+    "UserData": null
+  }
+}

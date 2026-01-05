@@ -1,0 +1,14 @@
+{
+  "url": "https://os.ourvend.com/SaleMonitor/SaleInfo/",
+  "status": 200,
+  "contentType": "application/json; charset=utf-8",
+  "body": {
+    "MId": null,
+    "MiAlias": null,
+    "MiAddress": null,
+    "SaleAmount": null,
+    "SaleQuantity": null,
+    "Collect": null,
+    "Change": null
+  }
+}
