@@ -2,71 +2,49 @@ import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { 
   Upload, FileSpreadsheet, CheckCircle, Trash2, RefreshCw, Cpu, 
-  AlertTriangle, FileText, BarChart3, ArrowRight, Zap 
+  AlertTriangle, FileText, BarChart3, ArrowRight, Zap, Loader2 
 } from 'lucide-react';
-import { getMachines, notify } from '../services/db';
+import { saveTransaction, updateSlotConfig, getInventory, notify } from '../services/db'; // Direct DB Access
 import { VM_CONFIG } from '../lib/vm-config';
 
 interface SmartExcelImportProps {
-  onDataImported: (data: any[]) => void;
+  onDataImported: (data: any[], inventory: any[]) => void;
 }
 
 // --- 🗺️ PETA NAMA MESIN (MAPPING CONFIG) ---
-// Di sini kita ajar sistem tukar nama ID pelik kepada Nama Cantik
 const MACHINE_NAME_MAP: Record<string, string> = {
     "VMCHERAS-T4/iskandar": "VM UPTM CHERAS TINGKAT 4",
     "VMCHERAS-5": "VM UPTM CHERAS TINGKAT 5",
-    "test": "KPTM Bangi"
-    // Tuan boleh tambah lagi di sini masa depan: "ID_PELIK": "NAMA_CANTIK"
+    "test": "KPTM Bangi",
+    "HQ-Pantry": "Rozita HQ - Pantry"
+    // Tuan boleh tambah lagi di sini
 };
 
-// --- 🧠 AI PARSER ENGINE V7 (MAPPING EDITION) ---
+// --- 🧠 AI PARSER ENGINE V7 (SERVERLESS EDITION) ---
 const GEMINI_PARSER = {
   detectHeaders: (headers: string[]) => {
     const map = {
-      machine: -1,
-      product: -1,
-      amount: -1,
-      date: -1,
-      time: -1,
-      payment: -1
+      machine: -1, product: -1, amount: -1, date: -1, time: -1, payment: -1
     };
 
     headers.forEach((h, idx) => {
-      // Buang simbol pelik, tapi kekalkan space untuk check "User Name"
       const textClean = h.toLowerCase().trim(); 
       const textNoSpace = textClean.replace(/[^a-z0-9]/g, '');
 
-      // MACHINE: Cari 'User Name' secara agresif
-      if (textClean === 'user name' || textClean === 'username') {
-          map.machine = idx;
-      } 
-      else if (map.machine === -1 && ['terminalid', 'merchantname', 'machine', 'mesin'].some(k => textNoSpace.includes(k))) {
-          map.machine = idx;
-      }
+      if (textClean === 'user name' || textClean === 'username') map.machine = idx;
+      else if (map.machine === -1 && ['terminalid', 'merchantname', 'machine', 'mesin'].some(k => textNoSpace.includes(k))) map.machine = idx;
       
-      // PRODUCT: ProdDesc
-      else if (['proddesc', 'product', 'item', 'produk'].some(k => textNoSpace.includes(k))) {
-          map.product = idx;
-      }
+      else if (['proddesc', 'product', 'item', 'produk'].some(k => textNoSpace.includes(k))) map.product = idx;
       
-      // AMOUNT
-      else if (['originalamount', 'amount', 'price', 'harga', 'total'].some(k => textNoSpace.includes(k)) && !textNoSpace.includes('qty')) {
-          map.amount = idx;
-      }
+      else if (['originalamount', 'amount', 'price', 'harga', 'total'].some(k => textNoSpace.includes(k)) && !textNoSpace.includes('qty')) map.amount = idx;
       
-      // PAYMENT METHOD
-      else if (['paymentmethod', 'paytype', 'kaedah'].some(k => textNoSpace.includes(k))) {
-          map.payment = idx;
-      }
+      else if (['paymentmethod', 'paytype', 'kaedah'].some(k => textNoSpace.includes(k))) map.payment = idx;
 
-      // DATE
       else if (['date', 'transdate', 'tradetime', 'datetime', 'time'].some(k => textNoSpace.includes(k))) {
          if (textNoSpace === 'date' || textNoSpace === 'transdate') map.date = idx;
          else if (map.date === -1) map.time = idx;
       }
     });
-
     return map;
   },
 
@@ -88,10 +66,7 @@ const GEMINI_PARSER = {
             return date_info.toISOString();
         }
         const str = raw.toString().trim();
-        // Fix format "2026-01-04 09:03:50"
-        if (str.match(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/)) {
-            return str.replace(' ', 'T');
-        }
+        if (str.match(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/)) return str.replace(' ', 'T');
         const d = new Date(str);
         if (!isNaN(d.getTime())) return d.toISOString();
         return `${fileDate}T12:00:00`;
@@ -100,18 +75,10 @@ const GEMINI_PARSER = {
     }
   },
 
-  // FUNGSI TRANSLATE NAMA MESIN
   resolveMachineName: (rawName: string) => {
       if (!rawName) return 'Unknown Machine';
       const cleanRaw = rawName.toString().trim();
-      
-      // Check dalam PETA NAMA
-      if (MACHINE_NAME_MAP[cleanRaw]) {
-          return MACHINE_NAME_MAP[cleanRaw];
-      }
-      
-      // Kalau takde dalam peta, guna nama asal
-      return cleanRaw;
+      return MACHINE_NAME_MAP[cleanRaw] || cleanRaw;
   }
 };
 
@@ -143,38 +110,28 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
         const fileDateStr = fileDateMatch ? fileDateMatch[0] : manualDate;
 
         rawData.forEach((row: any, rowIndex) => {
-            // Skip Total Row
             const firstVal = Object.values(row)[0] as string;
-            if (firstVal && typeof firstVal === 'string' && 
-               (firstVal.toLowerCase().includes('total') || firstVal.toLowerCase().includes('jumlah'))) return;
+            if (firstVal && typeof firstVal === 'string' && (firstVal.toLowerCase().includes('total') || firstVal.toLowerCase().includes('jumlah'))) return;
 
-            // 1. AMOUNT
             let amount = 0;
             if (headerMap.amount !== -1) amount = GEMINI_PARSER.cleanAmount(row[headers[headerMap.amount]]);
             else amount = GEMINI_PARSER.cleanAmount(row['Original Amount'] || row['Amount'] || row['Price'] || 0);
 
             if (amount > 0) {
-                // 2. PRODUCT
                 let rawProdName = 'Unknown Product';
                 if (headerMap.product !== -1) rawProdName = row[headers[headerMap.product]];
                 else rawProdName = row['ProdDesc'] || row['Product'] || 'Item';
 
-                // 3. DATE
                 let timestamp = `${fileDateStr}T12:00:00`;
                 if (headerMap.date !== -1) timestamp = GEMINI_PARSER.parseDate(row[headers[headerMap.date]], fileDateStr);
                 else if (row['Date']) timestamp = GEMINI_PARSER.parseDate(row['Date'], fileDateStr);
 
-                // 4. MACHINE (THE FIX)
                 let rawMachine = 'Unknown';
-                // Cuba cari column index dulu
                 if (headerMap.machine !== -1) rawMachine = row[headers[headerMap.machine]];
-                // Fallback cari key specific
                 else rawMachine = row['User Name'] || row['Username'] || row['TerminalID'] || 'Unknown';
                 
-                // Guna Mapping untuk cantikkan nama
                 const finalMachineName = GEMINI_PARSER.resolveMachineName(rawMachine);
 
-                // 5. PAYMENT
                 let payMethod = 'Cash';
                 if (headerMap.payment !== -1) payMethod = row[headers[headerMap.payment]];
                 else payMethod = row['Payment Method'] || row['PayType'] || 'Cash';
@@ -190,7 +147,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     status: 'SUCCESS',
                     paymentMethod: payMethod,
                     timestamp: timestamp,
-                    machineId: finalMachineName, // Nama yang dah dimapping
+                    machineId: finalMachineName,
                     sourceFile: file.name
                 });
                 grandTotalAmount += amount;
@@ -209,30 +166,52 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
     setIsProcessing(false);
   };
 
+  // --- 🔥 BAHAGIAN PENTING: COMMIT TERUS KE DB BROWSER/SUPABASE (BYPASS SERVER) ---
   const commitImport = async () => {
     if (parsedRows.length === 0) return;
     setIsProcessing(true);
 
     try {
-        const res = await fetch('http://127.0.0.1:3001/api/import', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(parsedRows)
-        });
+        let successCount = 0;
+        const currentInventory = getInventory(); // Dapatkan stok semasa dari Local/Cloud
 
-        const json = await res.json();
-        if (res.ok) {
-            notify('success', `Berjaya simpan ${json.added} data!`);
-            if (onDataImported) onDataImported(parsedRows);
-            setParsedRows([]);
-            setFiles([]);
-            setImportStats(null);
-            setTimeout(() => window.location.reload(), 1000);
-        } else {
-            alert("Ralat Server: " + (json.error || "Sila pastikan bridge-server.js berjalan."));
+        // Proses setiap baris dalam memory browser
+        for (const tx of parsedRows) {
+            
+            // Logic Auto-Deduct Stock (Macam server buat dulu)
+            const matchedSlot = currentInventory.find(s => 
+                s.productName.toLowerCase().trim() === tx.productName.toLowerCase().trim() ||
+                tx.productName.toLowerCase().includes(s.productName.toLowerCase())
+            );
+
+            if (matchedSlot) {
+               tx.slotId = matchedSlot.id; // Link kan slot ID
+               const newStock = Math.max(0, matchedSlot.currentStock - 1);
+               // Update DB terus (Sync ke Supabase automatik via db.ts)
+               updateSlotConfig(matchedSlot.id, { currentStock: newStock });
+            } else {
+               tx.slotId = 'UNKNOWN';
+            }
+
+            // Simpan Transaksi (Sync ke Supabase automatik via db.ts)
+            saveTransaction(tx);
+            successCount++;
         }
+
+        // Siap!
+        notify(`Berjaya import ${successCount} transaksi!`, 'success');
+        
+        if (onDataImported) onDataImported(parsedRows, getInventory());
+        setParsedRows([]);
+        setFiles([]);
+        setImportStats(null);
+        
+        // Refresh page sikit untuk reflect data
+        setTimeout(() => window.location.reload(), 1500);
+
     } catch (e) {
-        alert("GAGAL SAMBUNG SERVER!\nRun 'node bridge-server.js' dulu.");
+        console.error(e);
+        notify("Gagal simpan data. Sila cuba lagi.", 'error');
     }
     setIsProcessing(false);
   };
@@ -255,7 +234,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
   };
 
   return (
-    <div className="bg-white p-6 rounded-xl shadow-lg border border-indigo-100 mb-6 transition-all relative overflow-hidden group hover:shadow-xl duration-500">
+    <div className="bg-white p-6 rounded-xl shadow-lg border border-indigo-100 mb-6 transition-all relative overflow-hidden group hover:shadow-xl duration-500 animate-in slide-in-from-top-4">
       <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
         <Cpu size={150} className="animate-pulse" />
       </div>
@@ -265,15 +244,15 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             <FileSpreadsheet size={24} />
         </div>
         <div>
-            Smart Import V7 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-mono">Mapping Edition</span>
-            <p className="text-xs text-slate-500 mt-0.5">Auto-Translate: "test" ➡️ "KPTM Bangi"</p>
+            Smart Import V7 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-mono">Cloud Edition</span>
+            <p className="text-xs text-slate-500 mt-0.5">Serverless Processing • Auto-Translate Engine Active</p>
         </div>
       </h3>
       
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="space-y-4">
             <div className={`
-                border-2 border-dashed rounded-xl p-8 text-center relative flex flex-col items-center justify-center min-h-[200px] cursor-pointer
+                border-2 border-dashed rounded-xl p-8 text-center relative flex flex-col items-center justify-center min-h-[200px] cursor-pointer transition-colors
                 ${files.length > 0 ? 'border-emerald-400 bg-emerald-50/50' : 'border-indigo-200 bg-slate-50 hover:bg-indigo-50'}
             `}>
                 <input type="file" accept=".xlsx, .xls, .csv" multiple onChange={handleFileDrop} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
@@ -284,8 +263,9 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     </div>
                 ) : (
                     <div>
-                        <Upload size={40} className="text-indigo-400 mx-auto mb-3" />
+                        <Upload size={40} className="text-indigo-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
                         <p className="text-slate-700 font-bold text-lg">Drop fail Excel di sini</p>
+                        <p className="text-xs text-slate-400 mt-2">Support: .xlsx, .csv</p>
                     </div>
                 )}
             </div>
@@ -293,9 +273,10 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
 
         <div className="flex flex-col justify-between">
             {isProcessing ? (
-                <div className="flex-1 flex flex-col items-center justify-center text-slate-500 bg-slate-50 rounded-xl animate-pulse">
-                    <RefreshCw className="animate-spin mb-3 text-indigo-500" size={32} />
-                    <p className="font-medium">Sedang Memproses...</p>
+                <div className="flex-1 flex flex-col items-center justify-center text-slate-500 bg-slate-50 rounded-xl animate-pulse border border-slate-200">
+                    <Loader2 className="animate-spin mb-3 text-indigo-500" size={32} />
+                    <p className="font-medium">Memproses Data...</p>
+                    <p className="text-xs text-slate-400 mt-1">Sila tunggu sebentar</p>
                 </div>
             ) : parsedRows.length > 0 ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -319,13 +300,14 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                         onClick={commitImport}
                         className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 px-6 rounded-xl shadow-xl flex items-center justify-center gap-3 transition-transform active:scale-95"
                     >
-                        <span>SAHKAN & UPLOAD</span>
+                        <span>SAHKAN & UPLOAD KE CLOUD</span>
                         <ArrowRight size={20} />
                     </button>
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
-                    <p className="text-center text-sm">Pilih fail Excel untuk lihat pratonton.</p>
+                    <BarChart3 size={32} className="mb-2 opacity-50"/>
+                    <p className="text-center text-sm">Pilih fail Excel untuk lihat analisis data.</p>
                 </div>
             )}
         </div>
