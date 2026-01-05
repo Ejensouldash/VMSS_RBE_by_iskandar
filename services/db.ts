@@ -2,6 +2,7 @@ import { ProductSlot, Transaction, IPay88CallbackData, WarehouseItem, PurchaseOr
 import { VM_CONFIG } from '../lib/vm-config';
 import { constructResponseSignature, generateSignature } from './crypto';
 import * as TCN from './tcn';
+import { supabase } from '../lib/supabase'; // <--- IMPORT SUPABASE
 
 const STORAGE_KEYS = {
   STOCK_COUNTS: 'vmms_stock_counts',
@@ -31,11 +32,47 @@ const INITIAL_MACHINES: Machine[] = [
 ];
 
 // INITIAL USERS
-// Pastikan username/password sepadan dengan apa yang Login.tsx cari
 const INITIAL_USERS: any[] = [
   { id: 1, username: 'admin', password: 'admin123', name: 'Super Admin', role: 'super_admin', email: 'admin@vmms.local', isActive: true, status: 'active' },
   { id: 2, username: 'manager', password: 'manager123', name: 'Hafiz Manager', role: 'manager', email: 'manager@vmms.local', isActive: true, status: 'active' },
 ];
+
+// --- CLOUD SYNC HELPERS (FUNGSI BARU) ---
+
+// Fungsi Hantar Data ke Supabase (Background)
+const pushToCloud = async (key: string, data: any) => {
+  try {
+    const { error } = await supabase
+      .from('kv_store')
+      .upsert({ key, value: data }, { onConflict: 'key' });
+    
+    if (error) console.error(`[CLOUD] Sync Error (${key}):`, error.message);
+  } catch (err) {
+    console.error(`[CLOUD] Sync Failed (${key}):`, err);
+  }
+};
+
+// Fungsi Tarik Data dari Supabase (Masa Loading)
+export const syncFromCloud = async () => {
+  try {
+    console.log("☁️ Syncing with Cloud Database...");
+    const { data, error } = await supabase.from('kv_store').select('*');
+    
+    if (error) throw error;
+
+    if (data) {
+      data.forEach(row => {
+        // Update LocalStorage dengan data terkini dari Cloud
+        if (row.value) {
+            localStorage.setItem(row.key, JSON.stringify(row.value));
+        }
+      });
+      console.log("✅ Sync Complete!");
+    }
+  } catch (err) {
+    console.error("❌ Sync Error (Using Offline Data):", err);
+  }
+};
 
 // Helper to generate 1 Year of realistic data
 const generateHistoricalData = (): Transaction[] => {
@@ -98,10 +135,12 @@ export const logAction = (actor: string, action: string, details: string) => {
   if (logs.length > 1000) logs.pop();
   
   localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify(logs));
+  pushToCloud(STORAGE_KEYS.AUDIT_LOGS, logs); // <--- SYNC LOGS
 };
 
 // --- INITIALIZATION ---
-export const initDB = () => {
+export const initDB = async () => {
+  // 1. Setup Local Data Default dulu
   if (!localStorage.getItem(STORAGE_KEYS.STOCK_COUNTS)) {
     const initialStockMap: Record<string, number> = {};
     VM_CONFIG.SLOTS.forEach(slot => {
@@ -152,6 +191,9 @@ export const initDB = () => {
   if (!localStorage.getItem(STORAGE_KEYS.AUDIT_LOGS)) {
     localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify([]));
   }
+
+  // 2. Tarik data terkini dari Cloud (Supabase)
+  await syncFromCloud();
 };
 
 export const syncInitialFromTCN = async (days = 30) => {
@@ -235,6 +277,8 @@ export const transferStock = (sku: string, from: 'HQ' | 'TRUCK', to: 'HQ' | 'TRU
 
     items[idx] = item;
     localStorage.setItem(STORAGE_KEYS.WAREHOUSE, JSON.stringify(items));
+    pushToCloud(STORAGE_KEYS.WAREHOUSE, items); // <--- SYNC WAREHOUSE
+
     logAction('admin', 'TRANSFER_STOCK', `Moved ${qty} of ${sku} from ${from} to ${to}`);
     notify(`Successfully transferred ${qty} units.`, 'success');
     return true;
@@ -254,6 +298,8 @@ export const createPurchaseOrder = (po: PurchaseOrder) => {
   const pos = getPurchaseOrders();
   pos.unshift(po);
   localStorage.setItem(STORAGE_KEYS.POS, JSON.stringify(pos));
+  pushToCloud(STORAGE_KEYS.POS, pos); // <--- SYNC PO
+
   logAction('admin', 'CREATE_PO', `Created PO ${po.id} for ${po.supplierName}`);
   notify(`PO #${po.id} created for ${po.supplierName}`, 'success');
 };
@@ -268,6 +314,8 @@ export const updateAlarmStatus = (alarmId: string, status: 'OPEN' | 'RESOLVED', 
   const alarms = getAlarms();
   const updated = alarms.map(a => a.id === alarmId ? { ...a, status, assignedTechnician: tech, resolutionNote: note } : a);
   localStorage.setItem(STORAGE_KEYS.ALARMS, JSON.stringify(updated));
+  pushToCloud(STORAGE_KEYS.ALARMS, updated); // <--- SYNC ALARMS
+
   logAction(tech || 'admin', 'UPDATE_ALARM', `Alarm ${alarmId} set to ${status}`);
   notify(`Alarm ${alarmId} updated to ${status}`, 'success');
 };
@@ -277,17 +325,24 @@ export const createServiceTicket = (ticket: ServiceTicket) => {
   const tickets: ServiceTicket[] = ticketsData ? JSON.parse(ticketsData) : [];
   tickets.unshift(ticket);
   localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
+  pushToCloud(STORAGE_KEYS.TICKETS, tickets); // <--- SYNC TICKETS
   
   updateAlarmStatus(ticket.alarmId, 'OPEN', ticket.technician);
   logAction('admin', 'DISPATCH_TECH', `Ticket ${ticket.id} assigned to ${ticket.technician}`);
   notify(`Ticket #${ticket.id} dispatched to ${ticket.technician}`, 'success');
 };
 
-// --- USER MANAGEMENT (DIPERBAIKI UNTUK SUPERSETTINGS & LOGIN) ---
+// --- USER MANAGEMENT (CLOUD ENABLED) ---
 
 export const getUsers = (): any[] => {
   const data = localStorage.getItem(STORAGE_KEYS.USERS);
-  return data ? JSON.parse(data) : INITIAL_USERS;
+  if (!data) return INITIAL_USERS;
+  try {
+    const users = JSON.parse(data);
+    return Array.isArray(users) ? users : INITIAL_USERS;
+  } catch(e) {
+    return INITIAL_USERS;
+  }
 };
 
 export const saveUser = (user: User) => {
@@ -303,43 +358,48 @@ export const saveUser = (user: User) => {
     logAction('admin', 'CREATE_USER', `Created user ${user.username}`);
   }
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  pushToCloud(STORAGE_KEYS.USERS, users); // <--- SYNC USERS
   return true;
 };
 
-// Fungsi Baru: Authenticate User (Untuk Login.tsx)
+// Fungsi Authenticate (untuk Login.tsx)
 export const authenticateUser = (username: string, pass: string) => {
   const users = getUsers();
   return users.find((u: any) => u.username === username && u.password === pass);
 };
 
-// Fungsi Baru: Add User (Untuk SuperSettings.tsx)
+// Fungsi Add User (untuk SuperSettings.tsx)
 export const addUser = (user: any) => {
   const users = getUsers();
-  // Generate ID baru (nombor atau string, kita support dua-dua)
-  const newId = users.length > 0 ? users.length + 1 : 1; 
+  const maxId = users.length > 0 ? Math.max(...users.map((u:any) => parseInt(String(u.id)) || 0)) : 0;
+  const newId = maxId + 1;
   
-  const newUser = {
-    ...user,
+  const newUser = { 
+    ...user, 
     id: newId, 
     email: user.email || `${user.username}@vmms.local`,
-    status: 'active'
+    status: 'active' 
   };
   
   users.push(newUser);
   localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+  pushToCloud(STORAGE_KEYS.USERS, users); // <--- SYNC USERS
+  
   logAction('admin', 'ADD_USER', `Added new user ${user.username}`);
   return newUser;
 };
 
-// Fungsi Delete (Update supaya support number ID dari SuperSettings)
+// Fungsi Delete User (untuk SuperSettings.tsx)
 export const deleteUser = (userId: string | number) => {
   let users = getUsers();
-  // Filter keluar user dengan ID tersebut (tak kisah number atau string)
   const initialLength = users.length;
-  users = users.filter((u:any) => u.id != userId);
+  // Filter keluar user dengan ID tersebut
+  users = users.filter((u:any) => String(u.id) !== String(userId));
   
   if (users.length < initialLength) {
       localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
+      pushToCloud(STORAGE_KEYS.USERS, users); // <--- SYNC USERS
+      
       logAction('admin', 'DELETE_USER', `Deleted user ID ${userId}`);
       return true;
   }
@@ -378,6 +438,8 @@ export const updateProductPrice = (slotId: string, newPrice: number): boolean =>
     const priceMap: Record<string, number> = priceData ? JSON.parse(priceData) : {};
     priceMap[slotId] = newPrice;
     localStorage.setItem(STORAGE_KEYS.PRICES, JSON.stringify(priceMap));
+    pushToCloud(STORAGE_KEYS.PRICES, priceMap); // <--- SYNC PRICES
+
     logAction('admin', 'UPDATE_PRICE', `Updated ${slotId} to RM${newPrice}`);
     return true;
   } catch (e) {
@@ -394,7 +456,10 @@ export const updateSlotConfig = (slotId: string, updates: { name?: string, price
        const stockData = localStorage.getItem(STORAGE_KEYS.STOCK_COUNTS);
        const stockMap: Record<string, number> = stockData ? JSON.parse(stockData) : {};
        stockMap[slotId] = updates.currentStock;
+       
        localStorage.setItem(STORAGE_KEYS.STOCK_COUNTS, JSON.stringify(stockMap));
+       pushToCloud(STORAGE_KEYS.STOCK_COUNTS, stockMap); // <--- SYNC STOCK
+       
        logAction('admin', 'UPDATE_STOCK', `Updated ${slotId} stock to ${updates.currentStock}`);
     }
 
@@ -402,7 +467,10 @@ export const updateSlotConfig = (slotId: string, updates: { name?: string, price
        const nameData = localStorage.getItem(STORAGE_KEYS.NAMES);
        const nameMap: Record<string, string> = nameData ? JSON.parse(nameData) : {};
        nameMap[slotId] = updates.name;
+       
        localStorage.setItem(STORAGE_KEYS.NAMES, JSON.stringify(nameMap));
+       pushToCloud(STORAGE_KEYS.NAMES, nameMap); // <--- SYNC NAMES
+
        logAction('admin', 'UPDATE_NAME', `Updated ${slotId} name to ${updates.name}`);
     }
     notify(`Slot ${slotId} updated.`, 'success');
@@ -420,7 +488,9 @@ export const getTransactions = (): Transaction[] => {
 export const saveTransaction = (tx: Transaction) => {
     const transactions = getTransactions();
     transactions.unshift(tx);
+    
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    pushToCloud(STORAGE_KEYS.TRANSACTIONS, transactions); // <--- SYNC TRANSACTIONS
 }
 
 export const mergeTransactions = (newTxs: Transaction[]) => {
@@ -436,7 +506,10 @@ export const mergeTransactions = (newTxs: Transaction[]) => {
   });
 
   currentTxs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  
   localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(currentTxs));
+  pushToCloud(STORAGE_KEYS.TRANSACTIONS, currentTxs); // <--- SYNC TRANSACTIONS
+
   console.log(`Merged ${addedCount} new transactions from Cloud.`);
   return addedCount;
 };
@@ -449,6 +522,9 @@ export const clearSalesData = () => {
         localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify([]));
         localStorage.removeItem(STORAGE_KEYS.SALES_TODAY);
         localStorage.removeItem(STORAGE_KEYS.TX_RECENT);
+        
+        pushToCloud(STORAGE_KEYS.TRANSACTIONS, []); // <--- SYNC CLEAR
+        
         console.log("Sales history cleared.");
         return true;
     } catch (e) {
@@ -473,6 +549,12 @@ export const resetProductData = () => {
         localStorage.setItem(STORAGE_KEYS.STOCK_COUNTS, JSON.stringify(initialStockMap));
         localStorage.setItem(STORAGE_KEYS.PRICES, JSON.stringify(initialPriceMap));
         localStorage.setItem(STORAGE_KEYS.NAMES, JSON.stringify(initialNameMap));
+        
+        // SYNC RESET
+        pushToCloud(STORAGE_KEYS.STOCK_COUNTS, initialStockMap);
+        pushToCloud(STORAGE_KEYS.PRICES, initialPriceMap);
+        pushToCloud(STORAGE_KEYS.NAMES, initialNameMap);
+
         console.log("Product data reset to default.");
         return true;
     } catch (e) {
@@ -505,6 +587,7 @@ export const resetDatabase = () => {
     
     // RESET USERS JUGA
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
+    pushToCloud(STORAGE_KEYS.USERS, INITIAL_USERS); // <--- SYNC RESET USER
 
     console.log("Database reset to EMPTY state.");
     return true;
@@ -556,6 +639,7 @@ export const processBackendCallback = async (data: IPay88CallbackData): Promise<
 
   stockMap[slotId] = currentStock - 1;
   localStorage.setItem(STORAGE_KEYS.STOCK_COUNTS, JSON.stringify(stockMap));
+  pushToCloud(STORAGE_KEYS.STOCK_COUNTS, stockMap); // <--- SYNC STOCK UPDATE
 
   const newTransaction: Transaction = {
     id: crypto.randomUUID(),
