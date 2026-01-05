@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { 
-  Upload, FileSpreadsheet, CheckCircle, Trash2, RefreshCw, Cpu, 
-  AlertTriangle, FileText, BarChart3, ArrowRight, Zap, Loader2 
+  Upload, FileSpreadsheet, CheckCircle, RefreshCw, Cpu, 
+  BarChart3, ArrowRight, Zap, Loader2 
 } from 'lucide-react';
-import { saveTransaction, updateSlotConfig, getInventory, notify } from '../services/db'; // Direct DB Access
+import { saveTransaction, updateSlotConfig, getInventory, notify } from '../services/db'; 
 import { VM_CONFIG } from '../lib/vm-config';
 
 interface SmartExcelImportProps {
@@ -17,7 +17,6 @@ const MACHINE_NAME_MAP: Record<string, string> = {
     "VMCHERAS-5": "VM UPTM CHERAS TINGKAT 5",
     "test": "KPTM Bangi",
     "HQ-Pantry": "Rozita HQ - Pantry"
-    // Tuan boleh tambah lagi di sini
 };
 
 // --- 🧠 AI PARSER ENGINE V7 (SERVERLESS EDITION) ---
@@ -28,6 +27,7 @@ const GEMINI_PARSER = {
     };
 
     headers.forEach((h, idx) => {
+      if (!h) return; // Safety Check untuk header kosong
       const textClean = h.toLowerCase().trim(); 
       const textNoSpace = textClean.replace(/[^a-z0-9]/g, '');
 
@@ -111,6 +111,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
 
         rawData.forEach((row: any, rowIndex) => {
             const firstVal = Object.values(row)[0] as string;
+            // Safety check: pastikan string wujud sebelum check .toLowerCase
             if (firstVal && typeof firstVal === 'string' && (firstVal.toLowerCase().includes('total') || firstVal.toLowerCase().includes('jumlah'))) return;
 
             let amount = 0;
@@ -121,6 +122,9 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 let rawProdName = 'Unknown Product';
                 if (headerMap.product !== -1) rawProdName = row[headers[headerMap.product]];
                 else rawProdName = row['ProdDesc'] || row['Product'] || 'Item';
+
+                // Pastikan nama produk string
+                rawProdName = rawProdName ? String(rawProdName) : 'Unknown Product';
 
                 let timestamp = `${fileDateStr}T12:00:00`;
                 if (headerMap.date !== -1) timestamp = GEMINI_PARSER.parseDate(row[headers[headerMap.date]], fileDateStr);
@@ -135,7 +139,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 let payMethod = 'Cash';
                 if (headerMap.payment !== -1) payMethod = row[headers[headerMap.payment]];
                 else payMethod = row['Payment Method'] || row['PayType'] || 'Cash';
-                if (!payMethod || payMethod.trim() === '') payMethod = 'Cash';
+                if (!payMethod || String(payMethod).trim() === '') payMethod = 'Cash';
 
                 allTransactions.push({
                     id: `IMP-${Date.now()}-${rowIndex}-${Math.random().toString(36).substr(2,5)}`,
@@ -166,7 +170,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
     setIsProcessing(false);
   };
 
-  // --- 🔥 BAHAGIAN PENTING: COMMIT TERUS KE DB BROWSER/SUPABASE (BYPASS SERVER) ---
+  // --- 🔥 FIXED: COMMIT FUNCTION DENGAN SAFETY CHECK ---
   const commitImport = async () => {
     if (parsedRows.length === 0) return;
     setIsProcessing(true);
@@ -178,11 +182,19 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
         // Proses setiap baris dalam memory browser
         for (const tx of parsedRows) {
             
-            // Logic Auto-Deduct Stock (Macam server buat dulu)
-            const matchedSlot = currentInventory.find(s => 
-                s.productName.toLowerCase().trim() === tx.productName.toLowerCase().trim() ||
-                tx.productName.toLowerCase().includes(s.productName.toLowerCase())
-            );
+            // --- SAFETY FIX DI SINI ---
+            // Kita pastikan .productName wujud dulu sebelum .toLowerCase()
+            // Kalau nama kosong, kita guna string kosong ''
+            const txProdNameSafe = (tx.productName || '').toString().toLowerCase().trim();
+
+            const matchedSlot = currentInventory.find(s => {
+                const slotNameSafe = (s.productName || '').toString().toLowerCase().trim();
+                
+                // Kalau slot name dalam database kosong, skip
+                if (!slotNameSafe) return false;
+
+                return slotNameSafe === txProdNameSafe || txProdNameSafe.includes(slotNameSafe);
+            });
 
             if (matchedSlot) {
                tx.slotId = matchedSlot.id; // Link kan slot ID
@@ -210,8 +222,8 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
         setTimeout(() => window.location.reload(), 1500);
 
     } catch (e) {
-        console.error(e);
-        notify("Gagal simpan data. Sila cuba lagi.", 'error');
+        console.error("IMPORT ERROR:", e); // Log error penuh
+        notify("Gagal simpan data. Sila semak console.", 'error');
     }
     setIsProcessing(false);
   };
