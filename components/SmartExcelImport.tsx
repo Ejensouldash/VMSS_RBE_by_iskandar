@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { 
   Upload, FileSpreadsheet, CheckCircle, RefreshCw, Cpu, 
-  BarChart3, ArrowRight, Zap, Loader2 
+  BarChart3, ArrowRight, Zap, Loader2, ShieldCheck, AlertCircle 
 } from 'lucide-react';
-// IMPORT FUNGSI BARU DI SINI
-import { saveBulkTransactions, saveBulkStock, getInventory, notify } from '../services/db'; 
+import { saveBulkTransactions, saveBulkStock, getInventory, getTransactions, notify } from '../services/db'; 
 import { Transaction } from '../types';
 
 interface SmartExcelImportProps {
@@ -20,20 +19,38 @@ const MACHINE_NAME_MAP: Record<string, string> = {
     "HQ-Pantry": "Rozita HQ - Pantry"
 };
 
-// --- 🧠 AI PARSER ENGINE V7 ---
+// --- 🧠 AI PARSER ENGINE V10 (TRANS ID FOCUS) ---
 const GEMINI_PARSER = {
   detectHeaders: (headers: string[]) => {
-    const map = { machine: -1, product: -1, amount: -1, date: -1, time: -1, payment: -1 };
+    const map = { machine: -1, product: -1, amount: -1, date: -1, time: -1, payment: -1, id: -1 };
+    
     headers.forEach((h, idx) => {
       if (!h) return;
       const textClean = h.toLowerCase().trim(); 
       const textNoSpace = textClean.replace(/[^a-z0-9]/g, '');
 
-      if (textClean === 'user name' || textClean === 'username') map.machine = idx;
+      // 1. ID / TRANS ID (PENTING!)
+      if (['transid', 'transno', 'refno', 'orderno', 'reference', 'id'].some(k => textNoSpace === k)) {
+          map.id = idx;
+      }
+      else if (map.id === -1 && ['trans', 'ref'].some(k => textNoSpace.includes(k))) {
+          map.id = idx;
+      }
+
+      // 2. MACHINE
+      else if (textClean === 'user name' || textClean === 'username') map.machine = idx;
       else if (map.machine === -1 && ['terminalid', 'merchantname', 'machine', 'mesin'].some(k => textNoSpace.includes(k))) map.machine = idx;
+      
+      // 3. PRODUCT
       else if (['proddesc', 'product', 'item', 'produk'].some(k => textNoSpace.includes(k))) map.product = idx;
+      
+      // 4. AMOUNT
       else if (['originalamount', 'amount', 'price', 'harga', 'total'].some(k => textNoSpace.includes(k)) && !textNoSpace.includes('qty')) map.amount = idx;
+      
+      // 5. PAYMENT
       else if (['paymentmethod', 'paytype', 'kaedah'].some(k => textNoSpace.includes(k))) map.payment = idx;
+
+      // 6. DATE/TIME
       else if (['date', 'transdate', 'tradetime', 'datetime', 'time'].some(k => textNoSpace.includes(k))) {
          if (textNoSpace === 'date' || textNoSpace === 'transdate') map.date = idx;
          else if (map.date === -1) map.time = idx;
@@ -62,9 +79,8 @@ const GEMINI_PARSER = {
         const str = raw.toString().trim();
         // Support format CSV "04/01/2026 09:03"
         if (str.includes('/')) {
-            const parts = str.split(/[\/\s:]/); // Split by / space or :
+            const parts = str.split(/[\/\s:]/); 
             if (parts.length >= 3) {
-                // Assume DD/MM/YYYY
                 const day = parts[0];
                 const month = parts[1];
                 const year = parts[2];
@@ -143,9 +159,26 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 else payMethod = row['Payment Method'] || row['PayType'] || 'Cash';
                 if (!payMethod || String(payMethod).trim() === '') payMethod = 'Cash';
 
+                // --- 🆔 UNIK BERDASARKAN TRANS ID ---
+                // Kita cari kolum ID secara automatik dulu
+                let uniqueRef = '';
+                if (headerMap.id !== -1) {
+                    uniqueRef = String(row[headers[headerMap.id]]);
+                } else {
+                    // Fallback cari manual kalau auto-detect tak jumpa
+                    uniqueRef = row['TransId'] || row['TransID'] || row['No'] || row['Reference'] || row['RefNo'];
+                }
+
+                // Kalau betul-betul takde ID, baru guna fingerprint (Masa+Mesin+Harga)
+                if (!uniqueRef || uniqueRef === 'undefined') {
+                   const cleanTime = timestamp.replace(/[^0-9]/g, ''); 
+                   const cleanMachine = finalMachineName.replace(/[^a-zA-Z0-9]/g, '');
+                   uniqueRef = `GEN-${cleanMachine}-${cleanTime}-${amount}`;
+                }
+
                 allTransactions.push({
-                    id: `IMP-${Date.now()}-${rowIndex}-${Math.random().toString(36).substr(2,5)}`,
-                    refNo: row['TransId'] || row['No'] || `REF-${Date.now()}-${rowIndex}`,
+                    id: `IMP-${uniqueRef}`, // Sistem akan guna ini untuk check duplicate
+                    refNo: String(uniqueRef), // Ini kunci utama!
                     paymentId: row['Merchant RefNo'] || `XL-${rowIndex}`,
                     productName: rawProdName,
                     amount: amount,
@@ -154,7 +187,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     paymentMethod: payMethod,
                     timestamp: timestamp,
                     machineId: finalMachineName,
-                    slotId: 'UNKNOWN' // Will be processed in commit
+                    slotId: 'UNKNOWN' 
                 });
                 grandTotalAmount += amount;
             }
@@ -171,17 +204,31 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
     setIsProcessing(false);
   };
 
-  // --- 🔥 LOGIK BULK SAVE (PENYELESAIAN MASALAH 100 DATA) ---
+  // --- 🔥 LOGIK DUPLICATE CHECK (BERDASARKAN TRANS ID) ---
   const commitImport = async () => {
     if (parsedRows.length === 0) return;
     setIsProcessing(true);
 
     try {
         const currentInventory = getInventory();
+        const existingTransactions = getTransactions();
+        
+        // 1. Senaraikan semua TransId yang dah ada dalam sistem
+        const existingRefs = new Set(existingTransactions.map(t => String(t.refNo)));
+        
+        const newUniqueTransactions: Transaction[] = [];
         const stockUpdates: Record<string, number> = {};
         
-        // 1. Proses mapping data dalam MEMORY sahaja dulu
-        const finalTransactions = parsedRows.map(tx => {
+        let skippedCount = 0;
+
+        parsedRows.forEach(tx => {
+            // Check: Adakah TransId ini dah wujud?
+            if (existingRefs.has(String(tx.refNo))) {
+                skippedCount++; // Kalau dah ada, abaikan (Skip)
+                return; 
+            }
+
+            // Kalau TransId baru, proses stok
             const txProdNameSafe = (tx.productName || '').toString().toLowerCase().trim();
             const matchedSlot = currentInventory.find(s => {
                 const slotNameSafe = (s.productName || '').toString().toLowerCase().trim();
@@ -189,35 +236,41 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             });
 
             if (matchedSlot) {
-                // Kira stok baru tapi simpan dalam object dulu, jangan tulis DB lagi
                 const currentCount = stockUpdates[matchedSlot.id] !== undefined 
                     ? stockUpdates[matchedSlot.id] 
                     : matchedSlot.currentStock;
                 
                 stockUpdates[matchedSlot.id] = Math.max(0, currentCount - 1);
-                
-                return { ...tx, slotId: matchedSlot.id };
+                tx.slotId = matchedSlot.id;
+            } else {
+                tx.slotId = 'UNKNOWN';
             }
-            return { ...tx, slotId: 'UNKNOWN' };
+
+            newUniqueTransactions.push(tx);
+            // Tambah ke set supaya tak duplicate dalam fail yang sama (jika Excel ada row duplicate)
+            existingRefs.add(String(tx.refNo));
         });
 
-        // 2. Simpan Transaksi SEKALI HARUNG (251 data sekaligus)
-        saveBulkTransactions(finalTransactions);
-
-        // 3. Simpan Stok SEKALI HARUNG
-        if (Object.keys(stockUpdates).length > 0) {
-            saveBulkStock(stockUpdates);
+        // 3. Simpan
+        if (newUniqueTransactions.length > 0) {
+            saveBulkTransactions(newUniqueTransactions);
+            
+            if (Object.keys(stockUpdates).length > 0) {
+                saveBulkStock(stockUpdates);
+            }
+            
+            notify(`Berjaya! ${newUniqueTransactions.length} data baru disimpan. (${skippedCount} duplicate dijumpai & dibuang)`, 'success');
+        } else {
+            notify(`Semua data dalam fail ini sudah wujud dalam sistem. (${skippedCount} duplicate)`, 'info');
         }
 
-        notify(`Berjaya import ${finalTransactions.length} transaksi!`, 'success');
+        if (onDataImported) onDataImported(newUniqueTransactions, getInventory());
         
-        if (onDataImported) onDataImported(finalTransactions, getInventory());
         setParsedRows([]);
         setFiles([]);
         setImportStats(null);
         
-        // Refresh
-        setTimeout(() => window.location.reload(), 1500);
+        setTimeout(() => window.location.reload(), 2000);
 
     } catch (e) {
         console.error("IMPORT ERROR:", e);
@@ -254,8 +307,8 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             <FileSpreadsheet size={24} />
         </div>
         <div>
-            Smart Import V8 <span className="text-xs bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full border border-emerald-200 ml-2 font-bold">Bulk Speed</span>
-            <p className="text-xs text-slate-500 mt-0.5">Memproses 250+ data serentak tanpa error.</p>
+            Smart Import V10 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-bold flex-inline items-center gap-1"><ShieldCheck size={10}/> TransId Protected</span>
+            <p className="text-xs text-slate-500 mt-0.5">Menggunakan TransId Excel untuk elak duplicate 100%.</p>
         </div>
       </h3>
       
@@ -275,7 +328,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     <div>
                         <Upload size={40} className="text-indigo-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
                         <p className="text-slate-700 font-bold text-lg">Drop fail Excel di sini</p>
-                        <p className="text-xs text-slate-400 mt-2">Support: .xlsx, .csv (Unlimited Rows)</p>
+                        <p className="text-xs text-slate-400 mt-2">Sistem akan kesan TransId secara automatik.</p>
                     </div>
                 )}
             </div>
@@ -285,38 +338,42 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             {isProcessing ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-slate-500 bg-slate-50 rounded-xl animate-pulse border border-slate-200">
                     <Loader2 className="animate-spin mb-3 text-indigo-500" size={32} />
-                    <p className="font-medium">Memproses {importStats ? importStats.totalRows : ''} Data...</p>
+                    <p className="font-medium">Menganalisis TransId...</p>
                 </div>
             ) : parsedRows.length > 0 ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
                     <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl p-5 text-white shadow-lg">
                         <div className="flex items-center gap-2 mb-4 border-b border-white/20 pb-2">
                             <Zap size={18} className="text-yellow-300" />
-                            <span className="font-bold tracking-wide text-sm uppercase">Analisis Selesai</span>
+                            <span className="font-bold tracking-wide text-sm uppercase">Sedia Untuk Import</span>
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-xs text-emerald-100 uppercase font-medium">Transaksi</p>
+                                <p className="text-xs text-emerald-100 uppercase font-medium">Rekod Dijumpai</p>
                                 <p className="text-3xl font-bold">{importStats?.totalRows}</p>
                             </div>
                             <div>
-                                <p className="text-xs text-emerald-100 uppercase font-medium">Jumlah Jualan</p>
+                                <p className="text-xs text-emerald-100 uppercase font-medium">Jumlah Nilai</p>
                                 <p className="text-3xl font-bold">RM {importStats?.totalAmount?.toFixed(2)}</p>
                             </div>
+                        </div>
+                        <div className="mt-3 flex items-start gap-2 text-xs bg-black/10 p-2 rounded text-emerald-50">
+                            <AlertCircle size={14} className="shrink-0 mt-0.5"/>
+                            TransId yang sama akan dibuang automatik.
                         </div>
                     </div>
                     <button 
                         onClick={commitImport}
                         className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 px-6 rounded-xl shadow-xl flex items-center justify-center gap-3 transition-transform active:scale-95"
                     >
-                        <span>SAHKAN (MASUK SEMUA)</span>
+                        <span>SAHKAN & IMPORT</span>
                         <ArrowRight size={20} />
                     </button>
                 </div>
             ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-xl bg-slate-50/50">
                     <BarChart3 size={32} className="mb-2 opacity-50"/>
-                    <p className="text-center text-sm">Pilih fail Excel untuk lihat analisis data.</p>
+                    <p className="text-center text-sm">Upload Excel untuk mulakan.</p>
                 </div>
             )}
         </div>
