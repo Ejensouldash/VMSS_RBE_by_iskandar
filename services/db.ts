@@ -1,4 +1,4 @@
-import { ProductSlot, Transaction, IPay88CallbackData, WarehouseItem, PurchaseOrder, ServiceTicket, Alarm, Machine, User, AuditLog } from '../types';
+import { ProductSlot, Transaction, IPay88CallbackData, WarehouseItem, PurchaseOrder, ServiceTicket, Alarm, Machine, User, AuditLog, ProductCost } from '../types';
 import { VM_CONFIG } from '../lib/vm-config';
 import { constructResponseSignature, generateSignature } from './crypto';
 import * as TCN from './tcn';
@@ -17,7 +17,8 @@ const STORAGE_KEYS = {
   USERS: 'vmms_users_V2',         
   AUDIT_LOGS: 'vmms_audit_logs',
   SALES_TODAY: 'vmms_sales_today',      
-  TX_RECENT: 'vmms_transactions_recent'
+  TX_RECENT: 'vmms_transactions_recent',
+  PRODUCT_COSTS: 'vmms_product_costs_master' // <--- KEY BARU UNTUK KOS
 };
 
 // INITIAL SEED MACHINES
@@ -70,12 +71,6 @@ export const syncFromCloud = async () => {
   }
 };
 
-// Helper to generate 1 Year of realistic data (Only used if DB is totally empty)
-const generateHistoricalData = (): Transaction[] => {
-  // Biar kosong jika kita nak reset bersih
-  return [];
-};
-
 export const notify = (message: string, type: 'success' | 'error' | 'info' | 'warning' = 'info') => {
   const event = new CustomEvent('vmms-toast', { detail: { message, type } });
   window.dispatchEvent(event);
@@ -100,9 +95,79 @@ export const logAction = (actor: string, action: string, details: string) => {
   pushToCloud(STORAGE_KEYS.AUDIT_LOGS, logs); 
 };
 
+// --- 🧠 AI FUZZY LOGIC & PRODUCT COST ENGINE (NEW) ---
+
+// Algoritma Levenshtein Distance (Ukur persamaan ejaan)
+const getSimilarity = (s1: string, s2: string): number => {
+  const longer = s1.length > s2.length ? s1 : s2;
+  const shorter = s1.length > s2.length ? s2 : s1;
+  if (longer.length === 0) return 1.0;
+  
+  const costs = new Array();
+  for (let i = 0; i <= longer.length; i++) {
+    let lastValue = i;
+    for (let j = 0; j <= shorter.length; j++) {
+      if (i == 0) costs[j] = j;
+      else {
+        if (j > 0) {
+          let newValue = costs[j - 1];
+          if (s1.charAt(i - 1) != s2.charAt(j - 1)) newValue = Math.min(Math.min(newValue, lastValue), costs[j]) + 1;
+          costs[j - 1] = lastValue;
+          lastValue = newValue;
+        }
+      }
+    }
+    if (i > 0) costs[shorter.length] = lastValue;
+  }
+  return (longer.length - costs[shorter.length]) / parseFloat(longer.length);
+}
+
+// Fungsi Mencari Kos Paling Padan
+export const findProductCost = (txName: string): ProductCost | null => {
+  const data = localStorage.getItem(STORAGE_KEYS.PRODUCT_COSTS);
+  if (!data) return null;
+  
+  const products: ProductCost[] = JSON.parse(data);
+  const cleanTxName = txName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+  let bestMatch: ProductCost | null = null;
+  let highestScore = 0;
+
+  products.forEach(p => {
+    const cleanPName = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    
+    // Kira skor persamaan
+    const score = getSimilarity(cleanTxName, cleanPName);
+    
+    // Simpan skor tertinggi
+    if (score > highestScore) {
+      highestScore = score;
+      bestMatch = p;
+    }
+  });
+
+  // Threshold: Kalau persamaan lebih 40%, kita anggap match.
+  if (highestScore > 0.4) { 
+    return bestMatch;
+  }
+  
+  return null;
+};
+
+// Simpan Master List (Dari Excel Tuan)
+export const saveProductMasterList = (products: ProductCost[]) => {
+  localStorage.setItem(STORAGE_KEYS.PRODUCT_COSTS, JSON.stringify(products));
+  pushToCloud(STORAGE_KEYS.PRODUCT_COSTS, products); // Sync ke Cloud juga
+  console.log(`✅ Saved ${products.length} products to Master Cost DB`);
+};
+
+export const getProductMasterList = (): ProductCost[] => {
+    const data = localStorage.getItem(STORAGE_KEYS.PRODUCT_COSTS);
+    return data ? JSON.parse(data) : [];
+};
+
 // --- INITIALIZATION ---
 export const initDB = async () => {
-  // 1. Setup Local Data Default 
   if (!localStorage.getItem(STORAGE_KEYS.STOCK_COUNTS)) {
     const initialStockMap: Record<string, number> = {};
     VM_CONFIG.SLOTS.forEach(slot => {
@@ -115,7 +180,6 @@ export const initDB = async () => {
     localStorage.setItem(STORAGE_KEYS.MACHINES, JSON.stringify(INITIAL_MACHINES));
   }
 
-  // Jika tiada transaksi, biar kosong (jangan generate random lagi kalau user dah pernah reset)
   if (!localStorage.getItem(STORAGE_KEYS.TRANSACTIONS)) {
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify([]));
   }
@@ -152,13 +216,48 @@ export const initDB = async () => {
     localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify([]));
   }
 
-  // 2. Tarik data terkini dari Cloud
+  if (!localStorage.getItem(STORAGE_KEYS.PRODUCT_COSTS)) {
+    localStorage.setItem(STORAGE_KEYS.PRODUCT_COSTS, JSON.stringify([]));
+  }
+
   await syncFromCloud();
 };
 
 export const syncInitialFromTCN = async (days = 30) => {
-  // ... (Kod TCN sama seperti sebelum ini, tiada perubahan) ...
-  return true; 
+  try {
+    const sessionResp = await fetch('/session.json', { cache: 'no-store' });
+    if (!sessionResp.ok) return false;
+
+    const sessionJson = await sessionResp.json();
+    if (!sessionJson?.cookie) return false;
+
+    const machinesResult = await TCN.fetchLiveMachineStatus();
+    if (machinesResult.success) {
+      localStorage.setItem(STORAGE_KEYS.MACHINES, JSON.stringify(machinesResult.data));
+    }
+
+    const salesResult = await TCN.fetchSalesHistory(days);
+    if (salesResult.success) {
+      const txs = salesResult.transactions || [];
+      txs.sort((a,b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(txs));
+
+      const salesData = {
+        total: salesResult.totalSalesToday,
+        count: txs.filter(t => new Date(t.timestamp).toDateString() === new Date().toDateString()).length,
+        lastUpdated: new Date().toISOString()
+      };
+      localStorage.setItem(STORAGE_KEYS.SALES_TODAY, JSON.stringify(salesData));
+    }
+
+    window.dispatchEvent(new Event('storage'));
+    window.dispatchEvent(new Event('vmms:txs-updated'));
+
+    return true;
+  } catch (e: any) {
+    console.error('[DB] Error syncing from TCN:', e);
+    return false;
+  }
 };
 
 // --- MACHINES ---
@@ -396,7 +495,7 @@ export const saveBulkTransactions = (newTxs: Transaction[]) => {
   const updatedTxs = [...newTxs, ...currentTxs];
   
   localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(updatedTxs));
-  pushToCloud(STORAGE_KEYS.TRANSACTIONS, updatedTxs); // Sync Bulk
+  pushToCloud(STORAGE_KEYS.TRANSACTIONS, updatedTxs); 
   
   return updatedTxs.length;
 };
@@ -410,7 +509,7 @@ export const saveBulkStock = (stockUpdates: Record<string, number>) => {
   });
   
   localStorage.setItem(STORAGE_KEYS.STOCK_COUNTS, JSON.stringify(stockMap));
-  pushToCloud(STORAGE_KEYS.STOCK_COUNTS, stockMap); // Sync Bulk Stock
+  pushToCloud(STORAGE_KEYS.STOCK_COUNTS, stockMap); 
 };
 
 export const mergeTransactions = (newTxs: Transaction[]) => {
@@ -432,18 +531,16 @@ export const mergeTransactions = (newTxs: Transaction[]) => {
   return addedCount;
 };
 
-// --- DATA MANAGEMENT (RESET FIX) ---
+// --- DATA MANAGEMENT ---
 
 export const clearSalesData = () => {
     try {
         logAction('admin', 'CLEAR_SALES', 'Cleared all transaction history');
         
-        // 1. KOSONGKAN LOCAL
         localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify([]));
         localStorage.removeItem(STORAGE_KEYS.SALES_TODAY);
         localStorage.removeItem(STORAGE_KEYS.TX_RECENT);
         
-        // 2. 🔥 KOSONGKAN CLOUD (SUPABASE) 🔥
         pushToCloud(STORAGE_KEYS.TRANSACTIONS, []); 
         
         console.log("Sales history cleared from Local & Cloud.");
@@ -471,7 +568,6 @@ export const resetProductData = () => {
         localStorage.setItem(STORAGE_KEYS.PRICES, JSON.stringify(initialPriceMap));
         localStorage.setItem(STORAGE_KEYS.NAMES, JSON.stringify(initialNameMap));
         
-        // SYNC RESET KE CLOUD
         pushToCloud(STORAGE_KEYS.STOCK_COUNTS, initialStockMap);
         pushToCloud(STORAGE_KEYS.PRICES, initialPriceMap);
         pushToCloud(STORAGE_KEYS.NAMES, initialNameMap);
@@ -490,26 +586,24 @@ export const resetDatabase = () => {
       STORAGE_KEYS.AUDIT_LOGS,   
       STORAGE_KEYS.SALES_TODAY, 
       STORAGE_KEYS.POS,          
-      STORAGE_KEYS.TICKETS       
+      STORAGE_KEYS.TICKETS,
+      STORAGE_KEYS.PRODUCT_COSTS // Reset Master Data juga jika perlu bersih
     ];
     
     keysToReset.forEach(key => localStorage.removeItem(key));
     localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify([]));
     localStorage.setItem(STORAGE_KEYS.AUDIT_LOGS, JSON.stringify([]));
     
-    // 🔥 PENTING: PAKSA CLOUD JADI KOSONG
     pushToCloud(STORAGE_KEYS.TRANSACTIONS, []);
     pushToCloud(STORAGE_KEYS.AUDIT_LOGS, []);
     pushToCloud(STORAGE_KEYS.POS, []);
     pushToCloud(STORAGE_KEYS.TICKETS, []);
+    pushToCloud(STORAGE_KEYS.PRODUCT_COSTS, []);
     
-    // Reset Inventory
     resetProductData();
 
-    // Reset Machines
     localStorage.setItem(STORAGE_KEYS.MACHINES, JSON.stringify(INITIAL_MACHINES));
     
-    // RESET USERS
     localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(INITIAL_USERS));
     pushToCloud(STORAGE_KEYS.USERS, INITIAL_USERS); 
 
@@ -521,15 +615,63 @@ export const resetDatabase = () => {
   }
 };
 
-// Legacy support
 export const resetDB = resetDatabase;
 
 export const processBackendCallback = async (data: IPay88CallbackData): Promise<{ success: boolean; message: string }> => {
-  // ... (IPay88 Logic kekal sama) ...
-  // (Pastikan fungsi ini ada, atau copy dari versi sebelum ini jika perlu penuh. 
-  // Tapi untuk reset, fungsi di atas adalah kuncinya)
+  const sourceString = constructResponseSignature(
+    VM_CONFIG.MERCHANT.KEY,
+    data.merchantCode,
+    data.paymentId,
+    data.refNo,
+    data.amount,
+    data.currency,
+    data.status
+  );
+
+  const calculatedSignature = await generateSignature(sourceString, VM_CONFIG.MERCHANT.KEY);
   
-  // Saya pendekkan di sini untuk jimat ruang mesej, 
-  // tapi pastikan tuan simpan logik IPay88 di bawah fail ini.
-  return { success: true, message: "OK" }; 
+  if (calculatedSignature !== data.signature) {
+    return { success: false, message: "Signature verification failed" };
+  }
+
+  if (data.status !== "1") {
+    return { success: false, message: "Payment failed status" };
+  }
+
+  const parts = data.refNo.split('-');
+  const slotId = parts.find(p => p.startsWith('SLOT'));
+  const productConfig = VM_CONFIG.SLOTS.find(s => s.id === slotId);
+
+  if (!slotId || !productConfig) {
+    return { success: false, message: `Invalid Slot ID: ${slotId}` };
+  }
+
+  const stockData = localStorage.getItem(STORAGE_KEYS.STOCK_COUNTS);
+  const stockMap: Record<string, number> = stockData ? JSON.parse(stockData) : {};
+  const currentStock = stockMap[slotId] !== undefined ? stockMap[slotId] : productConfig.initialStock;
+
+  if (currentStock <= 0) {
+    return { success: false, message: "Out of stock" };
+  }
+
+  stockMap[slotId] = currentStock - 1;
+  localStorage.setItem(STORAGE_KEYS.STOCK_COUNTS, JSON.stringify(stockMap));
+  pushToCloud(STORAGE_KEYS.STOCK_COUNTS, stockMap); 
+
+  const newTransaction: Transaction = {
+    id: crypto.randomUUID(),
+    refNo: data.refNo,
+    paymentId: data.paymentId,
+    productName: productConfig.name,
+    slotId: productConfig.id,
+    amount: parseFloat(data.amount),
+    currency: data.currency,
+    status: 'SUCCESS',
+    paymentMethod: 'E-Wallet',
+    timestamp: new Date().toISOString()
+  };
+
+  saveTransaction(newTransaction);
+
+  return { success: true, message: "RECEIVEOK" };
 };

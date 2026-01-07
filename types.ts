@@ -1,52 +1,41 @@
-
+// --- PRODUCT & INVENTORY ---
 export interface ProductSlot {
-  id: string; // e.g., "SLOT01"
+  id: string;
   name: string;
   price: number;
-  currentStock: number;
   maxCapacity: number;
-  imageUrl?: string;
-  expiryDate?: string; // FIFO Logic
-  cartonSize?: number; // e.g., 24 units per carton
+  currentStock: number;
+  expiryDate?: string;
+  image?: string;
 }
 
+// [BARU] Interface untuk Master List Kos Produk (Dari Excel Tuan)
+export interface ProductCost {
+  id: string;
+  name: string;      // Nama produk dalam Excel
+  costPrice: number; // Harga Beli
+  salePrice: number; // Harga Jual
+  category: string;  // Kategori
+}
+
+// --- TRANSACTIONS ---
 export interface Transaction {
   id: string;
   refNo: string;
   paymentId: string;
   productName: string;
-  slotId: string;
   amount: number;
   currency: string;
-  status: 'SUCCESS' | 'FAILED';
+  status: 'SUCCESS' | 'FAILED' | 'PENDING';
   paymentMethod: string;
   timestamp: string;
-  lhdnStatus?: 'SUBMITTED' | 'VALIDATED' | 'PENDING'; // LHDN e-Invoice Status
-}
-
-export interface Location {
-  id: string;
-  name: string; // e.g., "KPTM Bangi - Block A"
-  address: string;
-  commissionRate: number; // e.g., 0.10 for 10%
-  totalSales: number;
-  picName: string; // Person In Charge
-}
-
-export interface WarehouseItem {
-  sku: string;
-  name: string;
-  hqStock: number; // Main Warehouse
-  truckStock: number; // Mobile Truck
-}
-
-export interface RouteStop {
-  id: string;
-  locationName: string;
-  urgency: 'HIGH' | 'MEDIUM' | 'LOW';
-  distance: string;
-  restockNeeded: number; // Total units needed
-  status: 'PENDING' | 'COMPLETED';
+  machineId?: string;
+  slotId?: string;
+  sourceFile?: string;
+  
+  // [BARU] Field tambahan untuk analisa kewangan
+  cost?: number;    // Kos produk semasa transaksi
+  profit?: number;  // Untung bersih (Amount - Cost)
 }
 
 export interface IPay88CallbackData {
@@ -57,115 +46,87 @@ export interface IPay88CallbackData {
   currency: string;
   status: string;
   signature: string;
+  errDesc?: string;
 }
 
-// PART 7 TYPES
+// --- WAREHOUSE & STOCK ---
+export interface WarehouseItem {
+  sku: string;
+  name: string;
+  category: string;
+  hqStock: number;    // Stok di HQ
+  truckStock: number; // Stok dalam Lori (On-the-go)
+  minLevel: number;
+  unit: string;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  supplierName: string;
+  date: string;
+  status: 'PENDING' | 'APPROVED' | 'RECEIVED';
+  items: { sku: string; qty: number; cost: number }[];
+  totalAmount: number;
+}
+
+// --- MAINTENANCE & TICKETS ---
+export interface ServiceTicket {
+  id: string;
+  machineId: string;
+  issue: string;
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
+  reportedBy: string;
+  technician?: string;
+  createdAt: string;
+  resolvedAt?: string;
+}
+
 export interface Alarm {
   id: string;
   machineId: string;
-  severity: 'CRITICAL' | 'WARNING' | 'INFO';
-  errorCode: string; // e.g., "ERR-MTR-01"
+  type: 'TEMPERATURE' | 'STOCK' | 'POWER' | 'DOOR' | 'SYSTEM';
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
   message: string;
   timestamp: string;
   status: 'OPEN' | 'RESOLVED';
   assignedTechnician?: string;
-  resolutionNote?: string; // Added for resolution details
+  resolutionNote?: string;
 }
 
-// PART 8 TYPES
-export interface Supplier {
-  id: string;
-  name: string;
-  contactPerson: string;
-  phone: string;
-  email: string;
-  rating: number; // 1-5 Stars
-  leadTimeDays: number;
-}
-
-export interface Commodity {
-  sku: string;
-  name: string;
-  supplierId: string;
-  costPrice: number; // Buying price
-  retailPrice: number; // Selling price
-  marginPct: number; // (Retail - Cost) / Retail * 100
-  lastOrderDate: string;
-}
-
-// NEW FUNCTIONAL TYPES
-export interface PurchaseOrder {
-  id: string;
-  supplierName: string;
-  items: string; // Description summary
-  totalCost: number;
-  status: 'PENDING' | 'APPROVED' | 'RECEIVED';
-  date: string;
-}
-
-export interface ServiceTicket {
-  id: string;
-  alarmId: string;
-  machineId: string;
-  issue: string;
-  status: 'OPEN' | 'IN_PROGRESS' | 'CLOSED';
-  technician: string;
-  dispatchedAt: string;
-}
-
-// NEW: Machine Telemetry Interface
+// --- MACHINES ---
 export interface Machine {
   id: string;
   name: string;
   group: string;
-  signal: number; // 0-5
-  temp: number;
-  status: 'ONLINE' | 'OFFLINE' | 'ERROR' | 'BOOTING';
+  signal: number; // 0-5 bars
+  temp: number;   // Celsius
+  status: 'ONLINE' | 'OFFLINE' | 'ERROR';
   door: 'OPEN' | 'CLOSED';
-  bill: 'OK' | 'JAMMED' | 'FULL' | 'UNKNOWN';
-  coin: 'OK' | 'LOW' | 'FULL' | 'UNKNOWN';
+  bill: 'OK' | 'LOW' | 'FULL' | 'JAMMED' | 'UNKNOWN';
+  coin: 'OK' | 'LOW' | 'FULL' | 'JAMMED' | 'UNKNOWN';
   card: 'OK' | 'ERR' | 'UNKNOWN';
-  stock: number; // Percentage
+  stock: number;  // Percentage or count
   lastSync: string;
 }
 
-// --- TCN CLOUD REVERSE ENGINEERED INTERFACES ---
-export interface TCNMachineRaw {
-  id: string;        // The Grid ID (internal)
-  MiNoline: string;  // The MacID / Machine Code (e.g., "10015523")
-  MiName: string;    // Machine Name
-  IsOnline: boolean; // true/false
-  GpsAddress: string;
-  SignalStrength: number;
-  Temp: number;
-  // Add other fields as discovered from the JSON response
-}
-
-export interface TCNResponse {
-  total: number;
-  page: number;
-  records: number;
-  rows: TCNMachineRaw[];
-}
-
-// --- SUPER SETTINGS TYPES ---
-export type UserRole = 'SUPER_ADMIN' | 'MANAGER' | 'TECHNICIAN';
-
+// --- USERS & AUDIT ---
 export interface User {
-  id: string;
+  id: number | string;
   username: string;
-  password: string; // In real app, this should be hashed
-  fullName: string;
-  role: UserRole;
+  password?: string; // Optional for security when displaying
+  name: string;
+  role: 'super_admin' | 'admin' | 'manager' | 'technician';
+  email: string;
   isActive: boolean;
+  status: 'active' | 'inactive';
   lastLogin?: string;
 }
 
 export interface AuditLog {
   id: string;
   timestamp: string;
-  actor: string; // Username
-  action: string; // e.g., "LOGIN", "UPDATE_PRICE"
+  actor: string;
+  action: string;
   details: string;
-  ipAddress?: string;
 }
