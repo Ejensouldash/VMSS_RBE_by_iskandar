@@ -19,7 +19,7 @@ const MACHINE_NAME_MAP: Record<string, string> = {
     "HQ-Pantry": "Rozita HQ - Pantry"
 };
 
-// --- 🧠 AI PARSER ENGINE V11 (DATE & TIME FIX) ---
+// --- 🧠 AI PARSER ENGINE V12 (MANUAL TIME BUILDER) ---
 const GEMINI_PARSER = {
   detectHeaders: (headers: string[]) => {
     const map = { machine: -1, product: -1, amount: -1, date: -1, time: -1, payment: -1, id: -1 };
@@ -29,13 +29,9 @@ const GEMINI_PARSER = {
       const textClean = h.toLowerCase().trim(); 
       const textNoSpace = textClean.replace(/[^a-z0-9]/g, '');
 
-      // 1. ID / TRANS ID
-      if (['transid', 'transno', 'refno', 'orderno', 'reference', 'id'].some(k => textNoSpace === k)) {
-          map.id = idx;
-      }
-      else if (map.id === -1 && ['trans', 'ref'].some(k => textNoSpace.includes(k))) {
-          map.id = idx;
-      }
+      // 1. ID
+      if (['transid', 'transno', 'refno', 'orderno', 'reference', 'id'].some(k => textNoSpace === k)) map.id = idx;
+      else if (map.id === -1 && ['trans', 'ref'].some(k => textNoSpace.includes(k))) map.id = idx;
 
       // 2. MACHINE
       else if (textClean === 'user name' || textClean === 'username') map.machine = idx;
@@ -67,59 +63,86 @@ const GEMINI_PARSER = {
     return parseFloat(clean) || 0;
   },
 
-  // 🔥 FUNGSI KHAS UNTUK BACA FORMAT: "7/1/2026 7:38:00 AM"
+  // 🔥 FUNGSI PARSE BARU: Manual Split (Lebih Tepat untuk Excel)
   parseDate: (raw: any, fileDate: string): string => {
     try {
         if (!raw) return `${fileDate}T12:00:00`;
 
-        // 1. Kalau Excel bagi nombor siri (Contoh: 45664.123)
+        // CASE A: EXCEL SERIAL NUMBER (Nombor Perpuluhan)
+        // Contoh: 45664.318 (Tarikh + Masa)
         if (typeof raw === 'number') {
             const utc_days  = Math.floor(raw - 25569);
             const utc_value = utc_days * 86400;                                        
             const date_info = new Date(utc_value * 1000);
-            return date_info.toISOString();
+            
+            // Fix Excel Timezone Offset (Sebab Excel kadang kira local time)
+            // Kita ambil ISO String terus
+            const iso = date_info.toISOString();
+            // Buang milisaat 'Z' hujung
+            return iso.split('.')[0];
         }
 
-        const str = String(raw).trim();
+        const str = String(raw).trim().toUpperCase();
 
-        // 2. REGEX POWERFUL: Baca format "7/1/2026 7:38:00 AM"
-        // ^(\d{1,2})\/(\d{1,2})\/(\d{4}) --> Cari DD/MM/YYYY
-        // \s+ --> Cari space
-        // (\d{1,2}):(\d{2}):?(\d{2})? --> Cari HH:MM:SS (saat optional)
-        // \s?(AM|PM) --> Cari AM atau PM
-        const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+        // CASE B: STRING FORMAT "7/1/2026 7:38:00 AM"
+        // Kita pecahkan kepada dua bahagian: [Tarikh, Masa]
+        // 1. Cari bahagian Tarikh (ada / atau -)
+        // 2. Cari bahagian Masa (ada :)
+        
+        let datePart = "";
+        let timePart = "";
+        let isPM = str.includes("PM");
+        let isAM = str.includes("AM");
 
-        if (match) {
-            let [_, day, month, year, hour, minute, second, meridian] = match;
-            let h = parseInt(hour);
+        // Pecahkan string guna 'space'
+        const parts = str.split(/\s+/);
+        
+        parts.forEach(p => {
+            if (p.includes('/') || p.includes('-')) datePart = p;
+            else if (p.includes(':')) timePart = p;
+        });
 
-            // Logic tukar 12-jam (AM/PM) ke 24-jam
-            if (meridian) {
-                const isPM = meridian.toUpperCase() === 'PM';
-                const isAM = meridian.toUpperCase() === 'AM';
-                
-                if (isPM && h < 12) h += 12;      // 1 PM -> 13:00
-                if (isAM && h === 12) h = 0;      // 12 AM -> 00:00
+        // 1. PROSES TARIKH (DD/MM/YYYY)
+        let YYYY = "2026", MM = "01", DD = "01";
+        if (datePart) {
+            const dSplits = datePart.split(/[\/\-]/); // Split guna / atau -
+            if (dSplits.length === 3) {
+                // Assume format Malaysia: DD/MM/YYYY
+                DD = dSplits[0].padStart(2, '0');
+                MM = dSplits[1].padStart(2, '0');
+                YYYY = dSplits[2];
+                if (YYYY.length === 2) YYYY = "20" + YYYY; // 26 -> 2026
             }
-
-            // Padatkan nombor (7 -> 07)
-            const YYYY = year;
-            const MM = month.padStart(2, '0');
-            const DD = day.padStart(2, '0');
-            const HH = String(h).padStart(2, '0');
-            const MIN = minute.padStart(2, '0');
-            const SEC = (second || '00').padStart(2, '0');
-
-            // Format ISO Database: YYYY-MM-DDTHH:MM:SS
-            return `${YYYY}-${MM}-${DD}T${HH}:${MIN}:${SEC}`;
+        } else {
+            // Kalau tak jumpa tarikh dalam row, guna tarikh fail
+            const fd = fileDate.split('-');
+            if (fd.length === 3) { YYYY = fd[0]; MM = fd[1]; DD = fd[2]; }
         }
 
-        // 3. Fallback: Kalau format lain (ISO standard)
-        const d = new Date(str);
-        if (!isNaN(d.getTime())) return d.toISOString();
+        // 2. PROSES MASA (HH:MM:SS)
+        let HH = 12, MIN = 0, SEC = 0;
+        if (timePart) {
+            const tSplits = timePart.split(':');
+            if (tSplits.length >= 2) {
+                HH = parseInt(tSplits[0]);
+                MIN = parseInt(tSplits[1]);
+                SEC = tSplits[2] ? parseInt(tSplits[2]) : 0;
+            }
+        }
 
-        return `${fileDate}T12:00:00`;
+        // 3. LOGIC 12-JAM ke 24-JAM
+        if (isPM && HH < 12) HH += 12;
+        if (isAM && HH === 12) HH = 0;
+
+        // 4. GABUNGKAN
+        const finalHH = String(HH).padStart(2, '0');
+        const finalMIN = String(MIN).padStart(2, '0');
+        const finalSEC = String(SEC).padStart(2, '0');
+
+        return `${YYYY}-${MM}-${DD}T${finalHH}:${finalMIN}:${finalSEC}`;
+
     } catch (e) {
+        console.error("Date Parse Error:", e);
         return `${fileDate}T12:00:00`;
     }
   },
@@ -172,7 +195,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 else rawProdName = row['ProdDesc'] || row['Product'] || 'Item';
                 rawProdName = rawProdName ? String(rawProdName) : 'Unknown Product';
 
-                // Guna parser baru untuk DATE
+                // Guna parser manual V12
                 let timestamp = `${fileDateStr}T12:00:00`;
                 if (headerMap.date !== -1) timestamp = GEMINI_PARSER.parseDate(row[headers[headerMap.date]], fileDateStr);
                 else if (row['Date']) timestamp = GEMINI_PARSER.parseDate(row['Date'], fileDateStr);
@@ -187,16 +210,13 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 else payMethod = row['Payment Method'] || row['PayType'] || 'Cash';
                 if (!payMethod || String(payMethod).trim() === '') payMethod = 'Cash';
 
-                // --- 🆔 UNIK BERDASARKAN TRANS ID ---
+                // ID Unik
                 let uniqueRef = '';
-                if (headerMap.id !== -1) {
-                    uniqueRef = String(row[headers[headerMap.id]]);
-                } else {
-                    uniqueRef = row['TransId'] || row['TransID'] || row['No'] || row['Reference'] || row['RefNo'];
-                }
+                if (headerMap.id !== -1) uniqueRef = String(row[headers[headerMap.id]]);
+                else uniqueRef = row['TransId'] || row['TransID'] || row['No'] || row['Reference'] || row['RefNo'];
 
                 if (!uniqueRef || uniqueRef === 'undefined') {
-                   // Fingerprint: Guna timestamp yang dah dibersihkan
+                   // Fingerprint guna timestamp yang dah dibersihkan
                    const cleanTime = timestamp.replace(/[^0-9]/g, ''); 
                    const cleanMachine = finalMachineName.replace(/[^a-zA-Z0-9]/g, '');
                    uniqueRef = `GEN-${cleanMachine}-${cleanTime}-${amount}`;
@@ -211,7 +231,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     currency: 'MYR',
                     status: 'SUCCESS',
                     paymentMethod: payMethod,
-                    timestamp: timestamp, // Tarikh & Masa yang dah tepat
+                    timestamp: timestamp, 
                     machineId: finalMachineName,
                     slotId: 'UNKNOWN' 
                 });
@@ -230,7 +250,6 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
     setIsProcessing(false);
   };
 
-  // --- 🔥 LOGIK DUPLICATE CHECK & BULK SAVE ---
   const commitImport = async () => {
     if (parsedRows.length === 0) return;
     setIsProcessing(true);
@@ -238,23 +257,18 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
     try {
         const currentInventory = getInventory();
         const existingTransactions = getTransactions();
-        
-        // 1. Senaraikan semua TransId yang dah ada
         const existingRefs = new Set(existingTransactions.map(t => String(t.refNo)));
         
         const newUniqueTransactions: Transaction[] = [];
         const stockUpdates: Record<string, number> = {};
-        
         let skippedCount = 0;
 
         parsedRows.forEach(tx => {
-            // Check Duplicate
             if (existingRefs.has(String(tx.refNo))) {
                 skippedCount++; 
                 return; 
             }
 
-            // Kalau data baru, proses
             const txProdNameSafe = (tx.productName || '').toString().toLowerCase().trim();
             const matchedSlot = currentInventory.find(s => {
                 const slotNameSafe = (s.productName || '').toString().toLowerCase().trim();
@@ -265,7 +279,6 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 const currentCount = stockUpdates[matchedSlot.id] !== undefined 
                     ? stockUpdates[matchedSlot.id] 
                     : matchedSlot.currentStock;
-                
                 stockUpdates[matchedSlot.id] = Math.max(0, currentCount - 1);
                 tx.slotId = matchedSlot.id;
             } else {
@@ -276,30 +289,23 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             existingRefs.add(String(tx.refNo));
         });
 
-        // 3. Simpan
         if (newUniqueTransactions.length > 0) {
             saveBulkTransactions(newUniqueTransactions);
-            
-            if (Object.keys(stockUpdates).length > 0) {
-                saveBulkStock(stockUpdates);
-            }
-            
+            if (Object.keys(stockUpdates).length > 0) saveBulkStock(stockUpdates);
             notify(`Berjaya! ${newUniqueTransactions.length} data baru disimpan.`, 'success');
         } else {
-            notify(`Tiada data baru. ${skippedCount} rekod duplicate dijumpai.`, 'info');
+            notify(`Tiada data baru. ${skippedCount} duplicate.`, 'info');
         }
 
         if (onDataImported) onDataImported(newUniqueTransactions, getInventory());
-        
         setParsedRows([]);
         setFiles([]);
         setImportStats(null);
-        
         setTimeout(() => window.location.reload(), 2000);
 
     } catch (e) {
         console.error("IMPORT ERROR:", e);
-        notify("Gagal simpan data. Sila semak console.", 'error');
+        notify("Gagal simpan data.", 'error');
     }
     setIsProcessing(false);
   };
@@ -332,8 +338,8 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             <FileSpreadsheet size={24} />
         </div>
         <div>
-            Smart Import V11 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-bold flex-inline items-center gap-1"><Clock size={10}/> AM/PM Fix</span>
-            <p className="text-xs text-slate-500 mt-0.5">Auto-Detect Masa (7/1/2026 7:38:00 AM) dengan tepat.</p>
+            Smart Import V12 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-bold flex-inline items-center gap-1"><Clock size={10}/> Manual Time Parser</span>
+            <p className="text-xs text-slate-500 mt-0.5">Membetulkan masalah jam 8:00 AM (Midnight UTC Bug).</p>
         </div>
       </h3>
       
@@ -353,7 +359,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     <div>
                         <Upload size={40} className="text-indigo-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
                         <p className="text-slate-700 font-bold text-lg">Drop fail Excel di sini</p>
-                        <p className="text-xs text-slate-400 mt-2">Sokongan format tarikh & masa Excel (AM/PM).</p>
+                        <p className="text-xs text-slate-400 mt-2">Support: Format masa Excel & Text.</p>
                     </div>
                 )}
             </div>
@@ -363,7 +369,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             {isProcessing ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-slate-500 bg-slate-50 rounded-xl animate-pulse border border-slate-200">
                     <Loader2 className="animate-spin mb-3 text-indigo-500" size={32} />
-                    <p className="font-medium">Menganalisis Format Masa...</p>
+                    <p className="font-medium">Menganalisis Tarikh & Masa...</p>
                 </div>
             ) : parsedRows.length > 0 ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -384,7 +390,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                         </div>
                         <div className="mt-3 flex items-start gap-2 text-xs bg-black/10 p-2 rounded text-emerald-50">
                             <ShieldCheck size={14} className="shrink-0 mt-0.5"/>
-                            TransId Duplicate akan ditolak. Masa format AM/PM disokong.
+                            TransId Duplicate akan ditolak.
                         </div>
                     </div>
                     <button 
