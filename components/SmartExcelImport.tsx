@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { 
   Upload, FileSpreadsheet, CheckCircle, RefreshCw, Cpu, 
-  BarChart3, ArrowRight, Zap, Loader2, ShieldCheck, AlertCircle 
+  BarChart3, ArrowRight, Zap, Loader2, ShieldCheck, AlertCircle, Clock 
 } from 'lucide-react';
 import { saveBulkTransactions, saveBulkStock, getInventory, getTransactions, notify } from '../services/db'; 
 import { Transaction } from '../types';
@@ -19,7 +19,7 @@ const MACHINE_NAME_MAP: Record<string, string> = {
     "HQ-Pantry": "Rozita HQ - Pantry"
 };
 
-// --- 🧠 AI PARSER ENGINE V10 (TRANS ID FOCUS) ---
+// --- 🧠 AI PARSER ENGINE V11 (DATE & TIME FIX) ---
 const GEMINI_PARSER = {
   detectHeaders: (headers: string[]) => {
     const map = { machine: -1, product: -1, amount: -1, date: -1, time: -1, payment: -1, id: -1 };
@@ -29,7 +29,7 @@ const GEMINI_PARSER = {
       const textClean = h.toLowerCase().trim(); 
       const textNoSpace = textClean.replace(/[^a-z0-9]/g, '');
 
-      // 1. ID / TRANS ID (PENTING!)
+      // 1. ID / TRANS ID
       if (['transid', 'transno', 'refno', 'orderno', 'reference', 'id'].some(k => textNoSpace === k)) {
           map.id = idx;
       }
@@ -67,30 +67,57 @@ const GEMINI_PARSER = {
     return parseFloat(clean) || 0;
   },
 
+  // 🔥 FUNGSI KHAS UNTUK BACA FORMAT: "7/1/2026 7:38:00 AM"
   parseDate: (raw: any, fileDate: string): string => {
     try {
         if (!raw) return `${fileDate}T12:00:00`;
+
+        // 1. Kalau Excel bagi nombor siri (Contoh: 45664.123)
         if (typeof raw === 'number') {
             const utc_days  = Math.floor(raw - 25569);
             const utc_value = utc_days * 86400;                                        
             const date_info = new Date(utc_value * 1000);
             return date_info.toISOString();
         }
-        const str = raw.toString().trim();
-        // Support format CSV "04/01/2026 09:03"
-        if (str.includes('/')) {
-            const parts = str.split(/[\/\s:]/); 
-            if (parts.length >= 3) {
-                const day = parts[0];
-                const month = parts[1];
-                const year = parts[2];
-                const time = str.split(' ')[1] || '12:00:00';
-                return `${year}-${month}-${day}T${time}`;
+
+        const str = String(raw).trim();
+
+        // 2. REGEX POWERFUL: Baca format "7/1/2026 7:38:00 AM"
+        // ^(\d{1,2})\/(\d{1,2})\/(\d{4}) --> Cari DD/MM/YYYY
+        // \s+ --> Cari space
+        // (\d{1,2}):(\d{2}):?(\d{2})? --> Cari HH:MM:SS (saat optional)
+        // \s?(AM|PM) --> Cari AM atau PM
+        const match = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM)?$/i);
+
+        if (match) {
+            let [_, day, month, year, hour, minute, second, meridian] = match;
+            let h = parseInt(hour);
+
+            // Logic tukar 12-jam (AM/PM) ke 24-jam
+            if (meridian) {
+                const isPM = meridian.toUpperCase() === 'PM';
+                const isAM = meridian.toUpperCase() === 'AM';
+                
+                if (isPM && h < 12) h += 12;      // 1 PM -> 13:00
+                if (isAM && h === 12) h = 0;      // 12 AM -> 00:00
             }
+
+            // Padatkan nombor (7 -> 07)
+            const YYYY = year;
+            const MM = month.padStart(2, '0');
+            const DD = day.padStart(2, '0');
+            const HH = String(h).padStart(2, '0');
+            const MIN = minute.padStart(2, '0');
+            const SEC = (second || '00').padStart(2, '0');
+
+            // Format ISO Database: YYYY-MM-DDTHH:MM:SS
+            return `${YYYY}-${MM}-${DD}T${HH}:${MIN}:${SEC}`;
         }
-        if (str.match(/^\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2}$/)) return str.replace(' ', 'T');
+
+        // 3. Fallback: Kalau format lain (ISO standard)
         const d = new Date(str);
         if (!isNaN(d.getTime())) return d.toISOString();
+
         return `${fileDate}T12:00:00`;
     } catch (e) {
         return `${fileDate}T12:00:00`;
@@ -145,6 +172,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 else rawProdName = row['ProdDesc'] || row['Product'] || 'Item';
                 rawProdName = rawProdName ? String(rawProdName) : 'Unknown Product';
 
+                // Guna parser baru untuk DATE
                 let timestamp = `${fileDateStr}T12:00:00`;
                 if (headerMap.date !== -1) timestamp = GEMINI_PARSER.parseDate(row[headers[headerMap.date]], fileDateStr);
                 else if (row['Date']) timestamp = GEMINI_PARSER.parseDate(row['Date'], fileDateStr);
@@ -160,32 +188,30 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 if (!payMethod || String(payMethod).trim() === '') payMethod = 'Cash';
 
                 // --- 🆔 UNIK BERDASARKAN TRANS ID ---
-                // Kita cari kolum ID secara automatik dulu
                 let uniqueRef = '';
                 if (headerMap.id !== -1) {
                     uniqueRef = String(row[headers[headerMap.id]]);
                 } else {
-                    // Fallback cari manual kalau auto-detect tak jumpa
                     uniqueRef = row['TransId'] || row['TransID'] || row['No'] || row['Reference'] || row['RefNo'];
                 }
 
-                // Kalau betul-betul takde ID, baru guna fingerprint (Masa+Mesin+Harga)
                 if (!uniqueRef || uniqueRef === 'undefined') {
+                   // Fingerprint: Guna timestamp yang dah dibersihkan
                    const cleanTime = timestamp.replace(/[^0-9]/g, ''); 
                    const cleanMachine = finalMachineName.replace(/[^a-zA-Z0-9]/g, '');
                    uniqueRef = `GEN-${cleanMachine}-${cleanTime}-${amount}`;
                 }
 
                 allTransactions.push({
-                    id: `IMP-${uniqueRef}`, // Sistem akan guna ini untuk check duplicate
-                    refNo: String(uniqueRef), // Ini kunci utama!
+                    id: `IMP-${uniqueRef}`, 
+                    refNo: String(uniqueRef), 
                     paymentId: row['Merchant RefNo'] || `XL-${rowIndex}`,
                     productName: rawProdName,
                     amount: amount,
                     currency: 'MYR',
                     status: 'SUCCESS',
                     paymentMethod: payMethod,
-                    timestamp: timestamp,
+                    timestamp: timestamp, // Tarikh & Masa yang dah tepat
                     machineId: finalMachineName,
                     slotId: 'UNKNOWN' 
                 });
@@ -204,7 +230,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
     setIsProcessing(false);
   };
 
-  // --- 🔥 LOGIK DUPLICATE CHECK (BERDASARKAN TRANS ID) ---
+  // --- 🔥 LOGIK DUPLICATE CHECK & BULK SAVE ---
   const commitImport = async () => {
     if (parsedRows.length === 0) return;
     setIsProcessing(true);
@@ -213,7 +239,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
         const currentInventory = getInventory();
         const existingTransactions = getTransactions();
         
-        // 1. Senaraikan semua TransId yang dah ada dalam sistem
+        // 1. Senaraikan semua TransId yang dah ada
         const existingRefs = new Set(existingTransactions.map(t => String(t.refNo)));
         
         const newUniqueTransactions: Transaction[] = [];
@@ -222,13 +248,13 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
         let skippedCount = 0;
 
         parsedRows.forEach(tx => {
-            // Check: Adakah TransId ini dah wujud?
+            // Check Duplicate
             if (existingRefs.has(String(tx.refNo))) {
-                skippedCount++; // Kalau dah ada, abaikan (Skip)
+                skippedCount++; 
                 return; 
             }
 
-            // Kalau TransId baru, proses stok
+            // Kalau data baru, proses
             const txProdNameSafe = (tx.productName || '').toString().toLowerCase().trim();
             const matchedSlot = currentInventory.find(s => {
                 const slotNameSafe = (s.productName || '').toString().toLowerCase().trim();
@@ -247,7 +273,6 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             }
 
             newUniqueTransactions.push(tx);
-            // Tambah ke set supaya tak duplicate dalam fail yang sama (jika Excel ada row duplicate)
             existingRefs.add(String(tx.refNo));
         });
 
@@ -259,9 +284,9 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 saveBulkStock(stockUpdates);
             }
             
-            notify(`Berjaya! ${newUniqueTransactions.length} data baru disimpan. (${skippedCount} duplicate dijumpai & dibuang)`, 'success');
+            notify(`Berjaya! ${newUniqueTransactions.length} data baru disimpan.`, 'success');
         } else {
-            notify(`Semua data dalam fail ini sudah wujud dalam sistem. (${skippedCount} duplicate)`, 'info');
+            notify(`Tiada data baru. ${skippedCount} rekod duplicate dijumpai.`, 'info');
         }
 
         if (onDataImported) onDataImported(newUniqueTransactions, getInventory());
@@ -307,8 +332,8 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             <FileSpreadsheet size={24} />
         </div>
         <div>
-            Smart Import V10 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-bold flex-inline items-center gap-1"><ShieldCheck size={10}/> TransId Protected</span>
-            <p className="text-xs text-slate-500 mt-0.5">Menggunakan TransId Excel untuk elak duplicate 100%.</p>
+            Smart Import V11 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-bold flex-inline items-center gap-1"><Clock size={10}/> AM/PM Fix</span>
+            <p className="text-xs text-slate-500 mt-0.5">Auto-Detect Masa (7/1/2026 7:38:00 AM) dengan tepat.</p>
         </div>
       </h3>
       
@@ -328,7 +353,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     <div>
                         <Upload size={40} className="text-indigo-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
                         <p className="text-slate-700 font-bold text-lg">Drop fail Excel di sini</p>
-                        <p className="text-xs text-slate-400 mt-2">Sistem akan kesan TransId secara automatik.</p>
+                        <p className="text-xs text-slate-400 mt-2">Sokongan format tarikh & masa Excel (AM/PM).</p>
                     </div>
                 )}
             </div>
@@ -338,7 +363,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             {isProcessing ? (
                 <div className="flex-1 flex flex-col items-center justify-center text-slate-500 bg-slate-50 rounded-xl animate-pulse border border-slate-200">
                     <Loader2 className="animate-spin mb-3 text-indigo-500" size={32} />
-                    <p className="font-medium">Menganalisis TransId...</p>
+                    <p className="font-medium">Menganalisis Format Masa...</p>
                 </div>
             ) : parsedRows.length > 0 ? (
                 <div className="space-y-4 animate-in fade-in slide-in-from-right-4 duration-500">
@@ -349,7 +374,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div>
-                                <p className="text-xs text-emerald-100 uppercase font-medium">Rekod Dijumpai</p>
+                                <p className="text-xs text-emerald-100 uppercase font-medium">Rekod Baru</p>
                                 <p className="text-3xl font-bold">{importStats?.totalRows}</p>
                             </div>
                             <div>
@@ -358,8 +383,8 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                             </div>
                         </div>
                         <div className="mt-3 flex items-start gap-2 text-xs bg-black/10 p-2 rounded text-emerald-50">
-                            <AlertCircle size={14} className="shrink-0 mt-0.5"/>
-                            TransId yang sama akan dibuang automatik.
+                            <ShieldCheck size={14} className="shrink-0 mt-0.5"/>
+                            TransId Duplicate akan ditolak. Masa format AM/PM disokong.
                         </div>
                     </div>
                     <button 
