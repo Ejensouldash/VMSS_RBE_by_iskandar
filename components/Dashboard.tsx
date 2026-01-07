@@ -1,123 +1,147 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Transaction } from '../types';
 import { 
   DollarSign, ShoppingBag, CreditCard, Activity, 
   TrendingUp, Calendar, Clock, Zap, ArrowRight,
-  PieChart, BarChart3, Award, Search, Filter, Cpu, Wallet, Star
+  PieChart, BarChart3, Award, Search, Filter, Cpu, Wallet, Star, CalendarDays
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   AreaChart, Area, PieChart as RePie, Pie, Cell, Legend
 } from 'recharts';
-import ProductCostUploader from '../components/ProductCostUploader'; // <--- IMPORT BARU
+
+import ProductCostUploader from '../components/ProductCostUploader'; 
+import SmartExcelImport from '../components/SmartExcelImport';
 
 interface DashboardProps {
   transactions: Transaction[];
+  onDataImported: (data: any[], inventory: any[]) => void;
 }
 
-// --- CONFIGURATION WARNA ---
 const PAYMENT_COLORS: Record<string, string> = {
-  'Cash': '#10b981',             // Emerald (Tunai)
-  'DuitNow QR': '#ec4899',       // Pink (DuitNow Rasmi)
-  'MAE by Maybank2u': '#f59e0b', // Amber/Kuning (Maybank)
-  'TNG QR (MYR)': '#3b82f6',     // Blue (Touch 'n Go)
-  'Debit Card': '#8b5cf6',       // Purple
-  'Other': '#94a3b8'             // Slate
+  'Cash': '#10b981',             
+  'DuitNow QR': '#ec4899',       
+  'MAE by Maybank2u': '#f59e0b', 
+  'TNG QR (MYR)': '#3b82f6',     
+  'Debit Card': '#8b5cf6',       
+  'Other': '#94a3b8'             
 };
 
-const COLORS = {
-  primary: '#6366f1',
-  secondary: '#64748b'
-};
-
-// Helper Format RM
 const formatRM = (val: number) => 
   new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(val);
 
-const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
+const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) => {
   
-  // --- PENGIRAAN STATISTIK (MEMOIZED) ---
+  // --- STATE: FILTER MASA ---
+  const [timeFilter, setTimeFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all'>('today');
+
+  // --- LOGIC FILTER DATA ---
+  const filteredData = useMemo(() => {
+    const now = new Date();
+    // Reset jam ke 00:00:00 untuk ketepatan tarikh
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+    const yesterdayStart = todayStart - 86400000; // Tolak 24 jam
+    const weekStart = todayStart - (7 * 86400000); // 7 Hari lepas
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime(); // Awal bulan ini
+
+    return transactions.filter(t => {
+      const tTime = new Date(t.timestamp).getTime();
+      
+      switch (timeFilter) {
+        case 'today':
+          return tTime >= todayStart;
+        case 'yesterday':
+          return tTime >= yesterdayStart && tTime < todayStart; // Mesti antara semalam dan hari ini
+        case 'week':
+          return tTime >= weekStart;
+        case 'month':
+          return tTime >= monthStart;
+        default: // 'all'
+          return true;
+      }
+    });
+  }, [transactions, timeFilter]);
+
+  // --- PENGIRAAN STATISTIK (BERDASARKAN FILTER) ---
   const stats = useMemo(() => {
-    const totalSales = transactions.reduce((sum, t) => sum + t.amount, 0);
-    const totalTransactions = transactions.length;
+    const totalSales = filteredData.reduce((sum, t) => sum + t.amount, 0);
+    const totalProfit = filteredData.reduce((sum, t) => sum + (t.profit || 0), 0);
+    const totalTransactions = filteredData.length;
     const avgTransactionValue = totalTransactions > 0 ? totalSales / totalTransactions : 0;
 
-    return { totalSales, totalTransactions, avgTransactionValue };
-  }, [transactions]);
+    return { totalSales, totalProfit, totalTransactions, avgTransactionValue };
+  }, [filteredData]);
 
-  // --- DATA CHART: PAYMENT METHOD ---
+  // --- DATA CHART (KEKAL GUNA DATA KESELURUHAN UNTUK TREND) ---
+  // Kita guna data 'transactions' (raw) untuk graf supaya nampak trend walaupun filter 'Hari Ini'
+  
   const paymentMethods = useMemo(() => {
     const counts: Record<string, number> = {};
-    transactions.forEach(t => {
+    filteredData.forEach(t => { // Chart Pie ikut filter
       const method = t.paymentMethod || 'Other';
       counts[method] = (counts[method] || 0) + 1;
     });
     return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [transactions]);
+  }, [filteredData]);
 
-  // --- DATA CHART: SALES TREND (7 HARI TERAKHIR) ---
   const salesTrend = useMemo(() => {
     const days: Record<string, number> = {};
     const today = new Date();
-    
-    // Initialize last 7 days with 0
     for (let i = 6; i >= 0; i--) {
       const d = new Date(today);
       d.setDate(today.getDate() - i);
       const key = d.toISOString().split('T')[0];
       days[key] = 0;
     }
-
-    transactions.forEach(t => {
+    transactions.forEach(t => { // Trend sentiasa tunjuk 7 hari
       const key = t.timestamp.split('T')[0];
-      if (days[key] !== undefined) {
-        days[key] += t.amount;
-      }
+      if (days[key] !== undefined) days[key] += t.amount;
     });
-
     return Object.entries(days).map(([date, amount]) => ({
       date: new Date(date).toLocaleDateString('ms-MY', { day: '2-digit', month: 'short' }),
       amount
     }));
   }, [transactions]);
 
-  // --- DATA CHART: TRAFIK JAM (HOURLY) ---
   const hourlyTraffic = useMemo(() => {
     const hours = Array(24).fill(0);
-    transactions.forEach(t => {
+    // Hourly chart ikut filter (kalau pilih semalam, nampak trend jam semalam)
+    filteredData.forEach(t => {
       const h = new Date(t.timestamp).getHours();
       hours[h]++;
     });
-    return hours.map((count, hour) => ({
-      hour: `${hour}:00`,
-      count
-    }));
-  }, [transactions]);
+    return hours.map((count, hour) => ({ hour: `${hour}:00`, count }));
+  }, [filteredData]);
 
-  // --- TOP PRODUCTS ---
   const topProducts = useMemo(() => {
     const products: Record<string, number> = {};
-    transactions.forEach(t => {
+    filteredData.forEach(t => {
       products[t.productName] = (products[t.productName] || 0) + 1;
     });
     return Object.entries(products)
       .sort(([, a], [, b]) => b - a)
       .slice(0, 5)
       .map(([name, count]) => ({ name, count }));
-  }, [transactions]);
+  }, [filteredData]);
 
-  // --- AI INSIGHTS ---
   const insights = useMemo(() => {
-    // Peak Hour Logic
     const peakHourIndex = hourlyTraffic.reduce((maxIdx, curr, idx, arr) => curr.count > arr[maxIdx].count ? idx : maxIdx, 0);
     const peakHour = hourlyTraffic[peakHourIndex]?.hour || '12:00';
-    
-    // Forecast Logic (Simple Projection)
     const lastDaySales = salesTrend[salesTrend.length - 1]?.amount || 0;
-    const forecast = lastDaySales * 1.1; // Assume 10% growth
-
+    const forecast = lastDaySales * 1.1; 
     return { peak: peakHour, forecast: formatRM(forecast) };
   }, [hourlyTraffic, salesTrend]);
+
+  // Helper untuk label filter
+  const getFilterLabel = () => {
+      switch(timeFilter) {
+          case 'today': return 'Hari Ini';
+          case 'yesterday': return 'Semalam';
+          case 'week': return 'Minggu Ini';
+          case 'month': return 'Bulan Ini';
+          default: return 'Keseluruhan';
+      }
+  }
 
   return (
     <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -132,28 +156,63 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
             Dashboard Jualan
           </h1>
           <p className="text-slate-500 mt-2 font-medium flex items-center gap-2">
-            <Clock size={14} /> Kemaskini Terakhir: {new Date().toLocaleString('ms-MY')}
+            <Clock size={14} /> Data dipaparkan untuk: <span className="text-indigo-600 font-bold">{getFilterLabel()}</span>
           </p>
+        </div>
+
+        {/* --- 🔘 BUTANG FILTER (YANG HILANG TADI) --- */}
+        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200">
+            {[
+                { id: 'today', label: 'Hari Ini' },
+                { id: 'yesterday', label: 'Semalam' },
+                { id: 'week', label: 'Minggu Ini' },
+                { id: 'month', label: 'Bulan Ini' },
+                { id: 'all', label: 'Semua' }
+            ].map((f) => (
+                <button
+                    key={f.id}
+                    onClick={() => setTimeFilter(f.id as any)}
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                        timeFilter === f.id 
+                        ? 'bg-indigo-600 text-white shadow-md' 
+                        : 'text-slate-500 hover:bg-slate-50'
+                    }`}
+                >
+                    {f.label}
+                </button>
+            ))}
         </div>
       </div>
 
-      {/* --- 🔥 NEW: PRODUCT COST UPLOADER DI SINI 🔥 --- */}
-      <div className="mb-8">
+      <div className="grid grid-cols-1 gap-6">
         <ProductCostUploader />
+        <SmartExcelImport onDataImported={onDataImported} />
       </div>
 
       {/* STATS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
         {/* Total Sales */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg transition-all duration-300 group">
           <div className="flex justify-between items-start mb-4">
             <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform">
               <DollarSign size={24} />
             </div>
-            <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-full">+12% vs semalam</span>
+            <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-full">{getFilterLabel()}</span>
           </div>
-          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Jumlah Jualan</p>
+          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Revenue</p>
           <h3 className="text-3xl font-black text-slate-800 mt-1">{formatRM(stats.totalSales)}</h3>
+        </div>
+
+        {/* Total Profit */}
+        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg transition-all duration-300 group">
+          <div className="flex justify-between items-start mb-4">
+            <div className="p-3 bg-yellow-100 text-yellow-600 rounded-xl group-hover:scale-110 transition-transform">
+              <Star size={24} />
+            </div>
+            <span className="text-xs font-bold bg-yellow-50 text-yellow-600 px-2 py-1 rounded-full">{getFilterLabel()}</span>
+          </div>
+          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Untung Bersih</p>
+          <h3 className="text-3xl font-black text-yellow-600 mt-1">{formatRM(stats.totalProfit)}</h3>
         </div>
 
         {/* Total Transactions */}
@@ -163,7 +222,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
               <ShoppingBag size={24} />
             </div>
           </div>
-          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Jumlah Transaksi</p>
+          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Transaksi</p>
           <h3 className="text-3xl font-black text-slate-800 mt-1">{stats.totalTransactions}</h3>
         </div>
 
@@ -181,7 +240,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
 
       {/* MAIN CHART SECTION */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Sales Trend (Area Chart) */}
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
             <TrendingUp className="text-indigo-500" size={20}/> Trend Jualan (7 Hari)
@@ -208,7 +266,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
           </div>
         </div>
 
-        {/* Payment Methods (Pie Chart) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
             <Wallet className="text-pink-500" size={20}/> Kaedah Bayaran
@@ -233,7 +290,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
                 <Legend verticalAlign="bottom" height={36} iconType="circle" />
               </RePie>
             </ResponsiveContainer>
-            {/* Center Text */}
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
               <span className="text-2xl font-black text-slate-800">{stats.totalTransactions}</span>
               <p className="text-[10px] text-slate-400 uppercase font-bold">Trans</p>
@@ -244,11 +300,9 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
 
       {/* SECONDARY STATS GRID */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        
-        {/* Hourly Traffic (Bar Chart) */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-            <Clock className="text-blue-500" size={20}/> Waktu Puncak (Jam)
+            <Clock className="text-blue-500" size={20}/> Trafik Jam ({getFilterLabel()})
           </h3>
           <div className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -263,13 +317,12 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
           </div>
         </div>
 
-        {/* Top Products */}
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-            <Award className="text-yellow-500" size={20}/> Produk Laris
+            <Award className="text-yellow-500" size={20}/> Produk Laris ({getFilterLabel()})
           </h3>
           <div className="space-y-4">
-            {topProducts.map((prod, idx) => (
+            {topProducts.length > 0 ? topProducts.map((prod, idx) => (
               <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
                 <div className="flex items-center gap-3">
                   <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs ${idx === 0 ? 'bg-yellow-400' : 'bg-slate-300'}`}>
@@ -281,13 +334,13 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions }) => {
                   {prod.count} <span className="text-[10px] font-normal text-slate-400">Unit</span>
                 </div>
               </div>
-            ))}
+            )) : (
+              <p className="text-center text-slate-400 text-sm py-10">Tiada jualan pada tempoh ini.</p>
+            )}
           </div>
         </div>
-
       </div>
 
-      {/* AI INSIGHTS & FOOTER */}
       <div className="bg-gradient-to-r from-slate-900 to-indigo-900 rounded-2xl p-6 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Cpu size={120} />
