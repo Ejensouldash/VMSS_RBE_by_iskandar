@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
 import { 
   Upload, FileSpreadsheet, CheckCircle, RefreshCw, Cpu, 
-  BarChart3, ArrowRight, Zap, Loader2, ShieldCheck, AlertCircle, Clock 
+  BarChart3, ArrowRight, Zap, Loader2, ShieldCheck, AlertCircle, Clock, Split 
 } from 'lucide-react';
 import { saveBulkTransactions, saveBulkStock, getInventory, getTransactions, notify } from '../services/db'; 
 import { Transaction } from '../types';
@@ -19,7 +19,7 @@ const MACHINE_NAME_MAP: Record<string, string> = {
     "HQ-Pantry": "Rozita HQ - Pantry"
 };
 
-// --- 🧠 AI PARSER ENGINE V12 (MANUAL TIME BUILDER) ---
+// --- 🧠 AI PARSER ENGINE V13 (SPLIT DATE & TIME) ---
 const GEMINI_PARSER = {
   detectHeaders: (headers: string[]) => {
     const map = { machine: -1, product: -1, amount: -1, date: -1, time: -1, payment: -1, id: -1 };
@@ -46,11 +46,13 @@ const GEMINI_PARSER = {
       // 5. PAYMENT
       else if (['paymentmethod', 'paytype', 'kaedah'].some(k => textNoSpace.includes(k))) map.payment = idx;
 
-      // 6. DATE/TIME
-      else if (['date', 'transdate', 'tradetime', 'datetime', 'time'].some(k => textNoSpace.includes(k))) {
-         if (textNoSpace === 'date' || textNoSpace === 'transdate') map.date = idx;
-         else if (map.date === -1) map.time = idx;
-      }
+      // 6. DATE (Kolum Khas Date)
+      else if (['date', 'transdate', 'tarikh'].some(k => textNoSpace === k)) map.date = idx;
+      else if (map.date === -1 && textNoSpace.includes('date') && !textNoSpace.includes('time')) map.date = idx;
+
+      // 7. TIME (Kolum Khas Time)
+      else if (['time', 'transtime', 'masa', 'jam'].some(k => textNoSpace === k)) map.time = idx;
+      else if (map.time === -1 && textNoSpace.includes('time')) map.time = idx;
     });
     return map;
   },
@@ -63,87 +65,82 @@ const GEMINI_PARSER = {
     return parseFloat(clean) || 0;
   },
 
-  // 🔥 FUNGSI PARSE BARU: Manual Split (Lebih Tepat untuk Excel)
-  parseDate: (raw: any, fileDate: string): string => {
+  // 🔥 FUNGSI GABUNGAN TARIKH & MASA DARI DUA KOLUM BERBEZA
+  mergeDateTime: (rawDate: any, rawTime: any, fileDateFallback: string): string => {
     try {
-        if (!raw) return `${fileDate}T12:00:00`;
-
-        // CASE A: EXCEL SERIAL NUMBER (Nombor Perpuluhan)
-        // Contoh: 45664.318 (Tarikh + Masa)
-        if (typeof raw === 'number') {
-            const utc_days  = Math.floor(raw - 25569);
-            const utc_value = utc_days * 86400;                                        
-            const date_info = new Date(utc_value * 1000);
-            
-            // Fix Excel Timezone Offset (Sebab Excel kadang kira local time)
-            // Kita ambil ISO String terus
-            const iso = date_info.toISOString();
-            // Buang milisaat 'Z' hujung
-            return iso.split('.')[0];
-        }
-
-        const str = String(raw).trim().toUpperCase();
-
-        // CASE B: STRING FORMAT "7/1/2026 7:38:00 AM"
-        // Kita pecahkan kepada dua bahagian: [Tarikh, Masa]
-        // 1. Cari bahagian Tarikh (ada / atau -)
-        // 2. Cari bahagian Masa (ada :)
-        
-        let datePart = "";
-        let timePart = "";
-        let isPM = str.includes("PM");
-        let isAM = str.includes("AM");
-
-        // Pecahkan string guna 'space'
-        const parts = str.split(/\s+/);
-        
-        parts.forEach(p => {
-            if (p.includes('/') || p.includes('-')) datePart = p;
-            else if (p.includes(':')) timePart = p;
-        });
-
-        // 1. PROSES TARIKH (DD/MM/YYYY)
+        // --- 1. PROSES DATE ---
         let YYYY = "2026", MM = "01", DD = "01";
-        if (datePart) {
-            const dSplits = datePart.split(/[\/\-]/); // Split guna / atau -
-            if (dSplits.length === 3) {
-                // Assume format Malaysia: DD/MM/YYYY
-                DD = dSplits[0].padStart(2, '0');
-                MM = dSplits[1].padStart(2, '0');
-                YYYY = dSplits[2];
-                if (YYYY.length === 2) YYYY = "20" + YYYY; // 26 -> 2026
+        
+        if (rawDate) {
+            // Jika Excel Serial Number (e.g. 45664)
+            if (typeof rawDate === 'number') {
+                const dateInfo = new Date(Math.floor(rawDate - 25569) * 86400 * 1000);
+                YYYY = String(dateInfo.getFullYear());
+                MM = String(dateInfo.getMonth() + 1).padStart(2, '0');
+                DD = String(dateInfo.getDate()).padStart(2, '0');
+            } else {
+                // Jika String "7/1/2026"
+                const dStr = String(rawDate).trim();
+                const parts = dStr.split(/[\/\-\.]/);
+                if (parts.length === 3) {
+                    DD = parts[0].padStart(2, '0');
+                    MM = parts[1].padStart(2, '0');
+                    YYYY = parts[2];
+                    if (YYYY.length === 2) YYYY = "20" + YYYY;
+                } else {
+                    // Fallback guna tarikh fail
+                    const fd = fileDateFallback.split('-');
+                    YYYY = fd[0]; MM = fd[1]; DD = fd[2];
+                }
             }
         } else {
-            // Kalau tak jumpa tarikh dalam row, guna tarikh fail
-            const fd = fileDate.split('-');
-            if (fd.length === 3) { YYYY = fd[0]; MM = fd[1]; DD = fd[2]; }
+             const fd = fileDateFallback.split('-');
+             YYYY = fd[0]; MM = fd[1]; DD = fd[2];
         }
 
-        // 2. PROSES MASA (HH:MM:SS)
-        let HH = 12, MIN = 0, SEC = 0;
-        if (timePart) {
-            const tSplits = timePart.split(':');
-            if (tSplits.length >= 2) {
-                HH = parseInt(tSplits[0]);
-                MIN = parseInt(tSplits[1]);
-                SEC = tSplits[2] ? parseInt(tSplits[2]) : 0;
+        // --- 2. PROSES TIME ---
+        let HH = 0, MIN = 0, SEC = 0;
+
+        if (rawTime !== undefined && rawTime !== null) {
+            // Jika Excel Fraction (e.g. 0.3180555 = 7:38 AM)
+            if (typeof rawTime === 'number') {
+                // Convert fraction day to seconds
+                const totalSeconds = Math.round(rawTime * 86400); 
+                HH = Math.floor(totalSeconds / 3600);
+                MIN = Math.floor((totalSeconds % 3600) / 60);
+                SEC = totalSeconds % 60;
+            } else {
+                // Jika String "7:38:00 AM"
+                const tStr = String(rawTime).trim().toUpperCase();
+                const isPM = tStr.includes("PM");
+                const isAM = tStr.includes("AM");
+                
+                // Buang AM/PM dan split
+                const cleanTime = tStr.replace(/[APM]/g, '').trim();
+                const parts = cleanTime.split(':');
+                
+                if (parts.length >= 2) {
+                    HH = parseInt(parts[0]);
+                    MIN = parseInt(parts[1]);
+                    SEC = parts[2] ? parseInt(parts[2]) : 0;
+                }
+
+                // Convert 12h -> 24h
+                if (isPM && HH < 12) HH += 12;
+                if (isAM && HH === 12) HH = 0;
             }
+        } else {
+            // Kalau tiada kolum time, default 12 tengahari
+            HH = 12; 
         }
 
-        // 3. LOGIC 12-JAM ke 24-JAM
-        if (isPM && HH < 12) HH += 12;
-        if (isAM && HH === 12) HH = 0;
-
-        // 4. GABUNGKAN
-        const finalHH = String(HH).padStart(2, '0');
-        const finalMIN = String(MIN).padStart(2, '0');
-        const finalSEC = String(SEC).padStart(2, '0');
-
-        return `${YYYY}-${MM}-${DD}T${finalHH}:${finalMIN}:${finalSEC}`;
+        // --- 3. GABUNGKAN ---
+        const finalTime = `${String(HH).padStart(2,'0')}:${String(MIN).padStart(2,'0')}:${String(SEC).padStart(2,'0')}`;
+        return `${YYYY}-${MM}-${DD}T${finalTime}`;
 
     } catch (e) {
-        console.error("Date Parse Error:", e);
-        return `${fileDate}T12:00:00`;
+        console.error("Merge Date Error:", e);
+        return `${fileDateFallback}T12:00:00`;
     }
   },
 
@@ -195,10 +192,12 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 else rawProdName = row['ProdDesc'] || row['Product'] || 'Item';
                 rawProdName = rawProdName ? String(rawProdName) : 'Unknown Product';
 
-                // Guna parser manual V12
-                let timestamp = `${fileDateStr}T12:00:00`;
-                if (headerMap.date !== -1) timestamp = GEMINI_PARSER.parseDate(row[headers[headerMap.date]], fileDateStr);
-                else if (row['Date']) timestamp = GEMINI_PARSER.parseDate(row['Date'], fileDateStr);
+                // --- GUNA MERGE DATE TIME V13 ---
+                // Kita ambil raw data dari kolum Date dan kolum Time
+                const rawDateVal = headerMap.date !== -1 ? row[headers[headerMap.date]] : null;
+                const rawTimeVal = headerMap.time !== -1 ? row[headers[headerMap.time]] : null;
+                
+                const timestamp = GEMINI_PARSER.mergeDateTime(rawDateVal, rawTimeVal, fileDateStr);
 
                 let rawMachine = 'Unknown';
                 if (headerMap.machine !== -1) rawMachine = row[headers[headerMap.machine]];
@@ -216,7 +215,6 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                 else uniqueRef = row['TransId'] || row['TransID'] || row['No'] || row['Reference'] || row['RefNo'];
 
                 if (!uniqueRef || uniqueRef === 'undefined') {
-                   // Fingerprint guna timestamp yang dah dibersihkan
                    const cleanTime = timestamp.replace(/[^0-9]/g, ''); 
                    const cleanMachine = finalMachineName.replace(/[^a-zA-Z0-9]/g, '');
                    uniqueRef = `GEN-${cleanMachine}-${cleanTime}-${amount}`;
@@ -231,7 +229,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     currency: 'MYR',
                     status: 'SUCCESS',
                     paymentMethod: payMethod,
-                    timestamp: timestamp, 
+                    timestamp: timestamp, // Hasil gabungan Date + Time
                     machineId: finalMachineName,
                     slotId: 'UNKNOWN' 
                 });
@@ -338,8 +336,8 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
             <FileSpreadsheet size={24} />
         </div>
         <div>
-            Smart Import V12 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-bold flex-inline items-center gap-1"><Clock size={10}/> Manual Time Parser</span>
-            <p className="text-xs text-slate-500 mt-0.5">Membetulkan masalah jam 8:00 AM (Midnight UTC Bug).</p>
+            Smart Import V13 <span className="text-xs bg-indigo-100 text-indigo-700 px-2 py-0.5 rounded-full border border-indigo-200 ml-2 font-bold flex-inline items-center gap-1"><Split size={10}/> Separate Date & Time</span>
+            <p className="text-xs text-slate-500 mt-0.5">Gabung Kolum Date & Kolum Time secara automatik.</p>
         </div>
       </h3>
       
@@ -359,7 +357,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
                     <div>
                         <Upload size={40} className="text-indigo-400 mx-auto mb-3 group-hover:scale-110 transition-transform" />
                         <p className="text-slate-700 font-bold text-lg">Drop fail Excel di sini</p>
-                        <p className="text-xs text-slate-400 mt-2">Support: Format masa Excel & Text.</p>
+                        <p className="text-xs text-slate-400 mt-2">Support: Kolum 'Date' & 'Time' berasingan.</p>
                     </div>
                 )}
             </div>
