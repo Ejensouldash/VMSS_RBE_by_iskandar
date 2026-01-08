@@ -2,8 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { Transaction } from '../types';
 import { 
   DollarSign, ShoppingBag, CreditCard, Activity, 
-  TrendingUp, Calendar, Clock, Zap, ArrowRight,
-  PieChart, BarChart3, Award, Search, Filter, Cpu, Wallet, Star, CalendarDays,
+  TrendingUp, Clock, Zap, Award, Filter, Cpu, Wallet, Star,
   Database, FileSpreadsheet, ChevronDown, ChevronUp, X
 } from 'lucide-react';
 import { 
@@ -35,8 +34,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
   
   // --- STATE ---
   const [timeFilter, setTimeFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all'>('today');
-  
-  // State untuk Toggle Uploader (Minimalist Mode)
   const [activeSection, setActiveSection] = useState<'none' | 'master' | 'import'>('none');
 
   // --- LOGIC FILTER DATA ---
@@ -176,21 +173,20 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
       </div>
 
       {/* --- 🌟 MINIMALIST DATA CONTROL PANEL 🌟 --- */}
-      <div className="bg-slate-50 rounded-2xl p-2 border border-slate-200">
+      <div className="bg-slate-50 rounded-2xl p-2 border border-slate-200 shadow-sm">
         <div className="grid grid-cols-2 gap-2">
             {/* Button 1: Master Data */}
             <button 
                 onClick={() => setActiveSection(activeSection === 'master' ? 'none' : 'master')}
                 className={`
-                    flex items-center justify-center gap-3 py-4 rounded-xl transition-all border font-bold text-sm
+                    flex items-center justify-center gap-3 py-3 rounded-xl transition-all border font-bold text-sm
                     ${activeSection === 'master' 
-                        ? 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-200' 
+                        ? 'bg-blue-600 text-white border-blue-700 shadow-inner' 
                         : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm'}
                 `}
             >
                 <Database size={18} />
-                <span className="hidden md:inline">Urus Kos Produk (Master)</span>
-                <span className="md:hidden">Kos Produk</span>
+                <span>Urus Kos (Master)</span>
                 {activeSection === 'master' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
 
@@ -198,55 +194,43 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
             <button 
                 onClick={() => setActiveSection(activeSection === 'import' ? 'none' : 'import')}
                 className={`
-                    flex items-center justify-center gap-3 py-4 rounded-xl transition-all border font-bold text-sm
+                    flex items-center justify-center gap-3 py-3 rounded-xl transition-all border font-bold text-sm
                     ${activeSection === 'import' 
-                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-200' 
+                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-inner' 
                         : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-sm'}
                 `}
             >
                 <FileSpreadsheet size={18} />
-                <span className="hidden md:inline">Import Transaksi Jualan</span>
-                <span className="md:hidden">Import Jualan</span>
+                <span>Import Jualan</span>
                 {activeSection === 'import' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
             </button>
         </div>
 
         {/* EXPANDABLE AREA */}
         {activeSection !== 'none' && (
-            <div className="mt-2 p-4 bg-white rounded-xl border border-slate-200 animate-in slide-in-from-top-2 fade-in shadow-inner relative">
-                {/* Close Button */}
+            <div className="mt-2 p-1 animate-in slide-in-from-top-2 fade-in relative">
+                
+                {/* Close Button X (Float) */}
                 <button 
                     onClick={() => setActiveSection('none')}
-                    className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-full"
+                    className="absolute top-4 right-4 z-10 text-slate-400 hover:text-slate-600 bg-white/50 hover:bg-white p-1 rounded-full shadow-sm"
+                    title="Tutup Panel"
                 >
                     <X size={20} />
                 </button>
 
-                {/* Content */}
                 {activeSection === 'master' && (
-                    <div>
-                        <div className="mb-4">
-                            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                                <Database className="text-blue-500"/> Tetapan Kos Produk
-                            </h3>
-                            <p className="text-sm text-slate-500">Upload fail 'Data Produk & Keuntungan' di sini.</p>
-                        </div>
+                    <div className="pt-2">
+                         {/* Terus tunjuk component, tak perlu tajuk tambahan sebab component dah ada tajuk */}
                         <ProductCostUploader />
                     </div>
                 )}
 
                 {activeSection === 'import' && (
-                    <div>
-                        <div className="mb-4">
-                            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
-                                <FileSpreadsheet className="text-emerald-500"/> Import Jualan
-                            </h3>
-                            <p className="text-sm text-slate-500">Upload fail laporan transaksi (IPay88/Cashless) di sini.</p>
-                        </div>
+                    <div className="pt-2">
+                        {/* Terus tunjuk component */}
                         <SmartExcelImport onDataImported={(d, i) => {
                             onDataImported(d, i);
-                            // Optional: Auto close lepas siap import kalau nak
-                            // setActiveSection('none'); 
                         }} />
                     </div>
                 )}
