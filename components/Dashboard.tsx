@@ -3,7 +3,8 @@ import { Transaction } from '../types';
 import { 
   DollarSign, ShoppingBag, CreditCard, Activity, 
   TrendingUp, Calendar, Clock, Zap, ArrowRight,
-  PieChart, BarChart3, Award, Search, Filter, Cpu, Wallet, Star, CalendarDays
+  PieChart, BarChart3, Award, Search, Filter, Cpu, Wallet, Star, CalendarDays,
+  Database, FileSpreadsheet, ChevronDown, ChevronUp, X
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
@@ -32,52 +33,45 @@ const formatRM = (val: number) =>
 
 const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) => {
   
-  // --- STATE: FILTER MASA ---
+  // --- STATE ---
   const [timeFilter, setTimeFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all'>('today');
+  
+  // State untuk Toggle Uploader (Minimalist Mode)
+  const [activeSection, setActiveSection] = useState<'none' | 'master' | 'import'>('none');
 
   // --- LOGIC FILTER DATA ---
   const filteredData = useMemo(() => {
     const now = new Date();
-    // Reset jam ke 00:00:00 untuk ketepatan tarikh
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const yesterdayStart = todayStart - 86400000; // Tolak 24 jam
-    const weekStart = todayStart - (7 * 86400000); // 7 Hari lepas
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime(); // Awal bulan ini
+    const yesterdayStart = todayStart - 86400000; 
+    const weekStart = todayStart - (7 * 86400000); 
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime(); 
 
     return transactions.filter(t => {
       const tTime = new Date(t.timestamp).getTime();
-      
       switch (timeFilter) {
-        case 'today':
-          return tTime >= todayStart;
-        case 'yesterday':
-          return tTime >= yesterdayStart && tTime < todayStart; // Mesti antara semalam dan hari ini
-        case 'week':
-          return tTime >= weekStart;
-        case 'month':
-          return tTime >= monthStart;
-        default: // 'all'
-          return true;
+        case 'today': return tTime >= todayStart;
+        case 'yesterday': return tTime >= yesterdayStart && tTime < todayStart; 
+        case 'week': return tTime >= weekStart;
+        case 'month': return tTime >= monthStart;
+        default: return true;
       }
     });
   }, [transactions, timeFilter]);
 
-  // --- PENGIRAAN STATISTIK (BERDASARKAN FILTER) ---
+  // --- STATISTIK ---
   const stats = useMemo(() => {
     const totalSales = filteredData.reduce((sum, t) => sum + t.amount, 0);
     const totalProfit = filteredData.reduce((sum, t) => sum + (t.profit || 0), 0);
     const totalTransactions = filteredData.length;
     const avgTransactionValue = totalTransactions > 0 ? totalSales / totalTransactions : 0;
-
     return { totalSales, totalProfit, totalTransactions, avgTransactionValue };
   }, [filteredData]);
 
-  // --- DATA CHART (KEKAL GUNA DATA KESELURUHAN UNTUK TREND) ---
-  // Kita guna data 'transactions' (raw) untuk graf supaya nampak trend walaupun filter 'Hari Ini'
-  
+  // --- CHART DATA ---
   const paymentMethods = useMemo(() => {
     const counts: Record<string, number> = {};
-    filteredData.forEach(t => { // Chart Pie ikut filter
+    filteredData.forEach(t => { 
       const method = t.paymentMethod || 'Other';
       counts[method] = (counts[method] || 0) + 1;
     });
@@ -93,7 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
       const key = d.toISOString().split('T')[0];
       days[key] = 0;
     }
-    transactions.forEach(t => { // Trend sentiasa tunjuk 7 hari
+    transactions.forEach(t => { 
       const key = t.timestamp.split('T')[0];
       if (days[key] !== undefined) days[key] += t.amount;
     });
@@ -105,7 +99,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
 
   const hourlyTraffic = useMemo(() => {
     const hours = Array(24).fill(0);
-    // Hourly chart ikut filter (kalau pilih semalam, nampak trend jam semalam)
     filteredData.forEach(t => {
       const h = new Date(t.timestamp).getHours();
       hours[h]++;
@@ -132,7 +125,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
     return { peak: peakHour, forecast: formatRM(forecast) };
   }, [hourlyTraffic, salesTrend]);
 
-  // Helper untuk label filter
   const getFilterLabel = () => {
       switch(timeFilter) {
           case 'today': return 'Hari Ini';
@@ -146,7 +138,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
   return (
     <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       
-      {/* HEADER */}
+      {/* HEADER & FILTER */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
@@ -156,12 +148,11 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
             Dashboard Jualan
           </h1>
           <p className="text-slate-500 mt-2 font-medium flex items-center gap-2">
-            <Clock size={14} /> Data dipaparkan untuk: <span className="text-indigo-600 font-bold">{getFilterLabel()}</span>
+            <Clock size={14} /> Data: <span className="text-indigo-600 font-bold">{getFilterLabel()}</span>
           </p>
         </div>
 
-        {/* --- 🔘 BUTANG FILTER (YANG HILANG TADI) --- */}
-        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200">
+        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
             {[
                 { id: 'today', label: 'Hari Ini' },
                 { id: 'yesterday', label: 'Semalam' },
@@ -172,7 +163,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
                 <button
                     key={f.id}
                     onClick={() => setTimeFilter(f.id as any)}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
                         timeFilter === f.id 
                         ? 'bg-indigo-600 text-white shadow-md' 
                         : 'text-slate-500 hover:bg-slate-50'
@@ -184,9 +175,83 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6">
-        <ProductCostUploader />
-        <SmartExcelImport onDataImported={onDataImported} />
+      {/* --- 🌟 MINIMALIST DATA CONTROL PANEL 🌟 --- */}
+      <div className="bg-slate-50 rounded-2xl p-2 border border-slate-200">
+        <div className="grid grid-cols-2 gap-2">
+            {/* Button 1: Master Data */}
+            <button 
+                onClick={() => setActiveSection(activeSection === 'master' ? 'none' : 'master')}
+                className={`
+                    flex items-center justify-center gap-3 py-4 rounded-xl transition-all border font-bold text-sm
+                    ${activeSection === 'master' 
+                        ? 'bg-blue-600 text-white border-blue-700 shadow-md ring-2 ring-blue-200' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm'}
+                `}
+            >
+                <Database size={18} />
+                <span className="hidden md:inline">Urus Kos Produk (Master)</span>
+                <span className="md:hidden">Kos Produk</span>
+                {activeSection === 'master' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+            </button>
+
+            {/* Button 2: Import Sales */}
+            <button 
+                onClick={() => setActiveSection(activeSection === 'import' ? 'none' : 'import')}
+                className={`
+                    flex items-center justify-center gap-3 py-4 rounded-xl transition-all border font-bold text-sm
+                    ${activeSection === 'import' 
+                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-md ring-2 ring-emerald-200' 
+                        : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-sm'}
+                `}
+            >
+                <FileSpreadsheet size={18} />
+                <span className="hidden md:inline">Import Transaksi Jualan</span>
+                <span className="md:hidden">Import Jualan</span>
+                {activeSection === 'import' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
+            </button>
+        </div>
+
+        {/* EXPANDABLE AREA */}
+        {activeSection !== 'none' && (
+            <div className="mt-2 p-4 bg-white rounded-xl border border-slate-200 animate-in slide-in-from-top-2 fade-in shadow-inner relative">
+                {/* Close Button */}
+                <button 
+                    onClick={() => setActiveSection('none')}
+                    className="absolute top-4 right-4 text-slate-400 hover:text-slate-600 hover:bg-slate-100 p-1 rounded-full"
+                >
+                    <X size={20} />
+                </button>
+
+                {/* Content */}
+                {activeSection === 'master' && (
+                    <div>
+                        <div className="mb-4">
+                            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                <Database className="text-blue-500"/> Tetapan Kos Produk
+                            </h3>
+                            <p className="text-sm text-slate-500">Upload fail 'Data Produk & Keuntungan' di sini.</p>
+                        </div>
+                        <ProductCostUploader />
+                    </div>
+                )}
+
+                {activeSection === 'import' && (
+                    <div>
+                        <div className="mb-4">
+                            <h3 className="font-bold text-slate-800 text-lg flex items-center gap-2">
+                                <FileSpreadsheet className="text-emerald-500"/> Import Jualan
+                            </h3>
+                            <p className="text-sm text-slate-500">Upload fail laporan transaksi (IPay88/Cashless) di sini.</p>
+                        </div>
+                        <SmartExcelImport onDataImported={(d, i) => {
+                            onDataImported(d, i);
+                            // Optional: Auto close lepas siap import kalau nak
+                            // setActiveSection('none'); 
+                        }} />
+                    </div>
+                )}
+            </div>
+        )}
       </div>
 
       {/* STATS CARDS */}
@@ -238,7 +303,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
         </div>
       </div>
 
-      {/* MAIN CHART SECTION */}
+      {/* CHART SECTION */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
@@ -298,7 +363,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
         </div>
       </div>
 
-      {/* SECONDARY STATS GRID */}
+      {/* SECONDARY STATS */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
@@ -341,6 +406,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
         </div>
       </div>
 
+      {/* FOOTER */}
       <div className="bg-gradient-to-r from-slate-900 to-indigo-900 rounded-2xl p-6 text-white relative overflow-hidden">
         <div className="absolute top-0 right-0 p-8 opacity-10">
           <Cpu size={120} />
@@ -350,23 +416,21 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
           <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
             <Zap className="text-yellow-400" size={20}/> AI Business Insights
           </h3>
-          
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/10 transition-all hover:translate-x-1 duration-300 backdrop-blur-sm">
+            <div className="bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/10 transition-all backdrop-blur-sm">
               <p className="text-xs text-emerald-300 uppercase font-bold tracking-wider mb-1 flex items-center gap-2">
                 <Clock size={12} /> Waktu Paling Sibuk
               </p>
               <p className="text-sm leading-relaxed text-slate-200">
-                Trafik pelanggan memuncak pada jam <span className="font-bold text-white bg-emerald-500/30 px-1.5 py-0.5 rounded border border-emerald-500/50">{insights.peak}</span>.
+                Trafik memuncak jam <span className="font-bold text-white bg-emerald-500/30 px-1.5 py-0.5 rounded border border-emerald-500/50">{insights.peak}</span>.
               </p>
             </div>
-            
-            <div className="bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/10 transition-all hover:translate-x-1 duration-300 backdrop-blur-sm">
+            <div className="bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/10 transition-all backdrop-blur-sm">
               <p className="text-xs text-amber-300 uppercase font-bold tracking-wider mb-1 flex items-center gap-2">
                 <TrendingUp size={12} /> Ramalan Esok
               </p>
               <p className="text-sm leading-relaxed text-slate-200">
-                Jangkaan jualan esok boleh mencecah <span className="font-bold text-white bg-amber-500/30 px-1.5 py-0.5 rounded border border-amber-500/50">{insights.forecast}</span> berdasarkan trend semasa.
+                Jangkaan jualan esok: <span className="font-bold text-white bg-amber-500/30 px-1.5 py-0.5 rounded border border-amber-500/50">{insights.forecast}</span>.
               </p>
             </div>
           </div>
