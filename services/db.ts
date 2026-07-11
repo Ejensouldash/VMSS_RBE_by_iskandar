@@ -133,18 +133,21 @@ export const findProductCost = (txName: string): ProductCost | null => {
   let bestMatch: ProductCost | null = null;
   let highestScore = 0;
 
-  products.forEach(p => {
+  for (const p of products) {
     const cleanPName = p.name.toLowerCase().replace(/[^a-z0-9]/g, '');
     
-    // Kira skor persamaan
+    // 1. Direct Substring Match (e.g. "100plus325ml" includes "100plus325")
+    if (cleanTxName.includes(cleanPName) || cleanPName.includes(cleanTxName)) {
+      return p;
+    }
+
+    // 2. Fuzzy Match
     const score = getSimilarity(cleanTxName, cleanPName);
-    
-    // Simpan skor tertinggi
     if (score > highestScore) {
       highestScore = score;
       bestMatch = p;
     }
-  });
+  }
 
   // Threshold: Kalau persamaan lebih 40%, kita anggap match.
   if (highestScore > 0.4) { 

@@ -1,13 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as XLSX from 'xlsx';
-import { Upload, FileText, CheckCircle, Save, Database, AlertCircle, Loader2 } from 'lucide-react';
-import { saveProductMasterList, notify } from '../services/db';
+import { Upload, FileText, CheckCircle, Save, Database, AlertCircle, Loader2, List, Trash2 } from 'lucide-react';
+import { saveProductMasterList, getProductMasterList, notify } from '../services/db';
 import { ProductCost } from '../types';
 
 const ProductCostUploader: React.FC = () => {
   const [stats, setStats] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState<string>('');
+  const [currentMasterList, setCurrentMasterList] = useState<ProductCost[]>([]);
+
+  useEffect(() => {
+    loadMasterList();
+  }, []);
+
+  const loadMasterList = () => {
+    const list = getProductMasterList();
+    setCurrentMasterList(list);
+  };
+
+  const generateStableId = (name: string) => {
+    const clean = name.toLowerCase().replace(/[^a-z0-9]/g, '');
+    let hash = 0;
+    for (let i = 0; i < clean.length; i++) {
+        const char = clean.charCodeAt(i);
+        hash = ((hash << 5) - hash) + char;
+        hash = hash & hash;
+    }
+    return `PROD-${Math.abs(hash).toString(36).toUpperCase()}`;
+  };
 
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -24,33 +45,21 @@ const ProductCostUploader: React.FC = () => {
             const wb = XLSX.read(bstr, { type: 'binary' });
             const ws = wb.Sheets[wb.SheetNames[0]];
             
-            // Baca data sebagai Array of Arrays (Baris demi baris)
             const data = XLSX.utils.sheet_to_json(ws, { header: 1 });
-
-            // Analisis Fail Excel Tuan:
-            // Row 0: Header (Bil, Produk, Kategori...)
-            // Data bermula dari Row 1
-            // Col 1 (Index 1): Nama Produk
-            // Col 2 (Index 2): Kategori
-            // Col 3 (Index 3): Harga Beli (Cost)
-            // Col 4 (Index 4): Harga Jual (Price)
             
             const products: ProductCost[] = [];
             let successCount = 0;
             
-            // Mula loop dari baris ke-2 (Index 1) untuk skip header utama
             data.slice(1).forEach((row: any) => {
-                // Pastikan ada Nama Produk (Column 1)
                 if (row[1]) { 
                     const rawName = String(row[1]).trim();
                     const rawCategory = row[2] ? String(row[2]) : 'General';
                     const rawCost = parseFloat(row[3]);
                     const rawPrice = parseFloat(row[4]);
 
-                    // Validasi mudah
                     if (rawName && !isNaN(rawCost)) {
                         products.push({
-                            id: `PROD-${Math.random().toString(36).substr(2,6).toUpperCase()}`,
+                            id: generateStableId(rawName),
                             name: rawName,
                             category: rawCategory,
                             costPrice: rawCost,
@@ -65,6 +74,7 @@ const ProductCostUploader: React.FC = () => {
                 saveProductMasterList(products);
                 setStats(`Berjaya: ${successCount} produk disimpan. Sistem kini tahu kos setiap barang!`);
                 notify(`Master Data: ${successCount} produk dikemaskini.`, 'success');
+                loadMasterList(); // Refresh jadual
             } else {
                 setStats('Ralat: Tiada data produk dijumpai. Pastikan format Excel betul.');
                 notify('Gagal membaca data produk.', 'error');
@@ -80,6 +90,16 @@ const ProductCostUploader: React.FC = () => {
       };
       
       reader.readAsBinaryString(file);
+    }
+  };
+
+  const handleDeleteAll = () => {
+    if (window.confirm('Adakah anda pasti untuk memadam semua Master Data?')) {
+        saveProductMasterList([]);
+        loadMasterList();
+        notify('Semua Master Data telah dipadam.', 'info');
+        setStats('');
+        setFileName('');
     }
   };
 
@@ -106,7 +126,7 @@ const ProductCostUploader: React.FC = () => {
             )}
         </div>
         
-        <div className="p-6 bg-slate-900/40 border-2 border-dashed border-slate-700/60 rounded-xl hover:border-indigo-500 hover:bg-indigo-950/10 transition-all text-center">
+        <div className="p-6 bg-slate-900/40 border-2 border-dashed border-slate-700/60 rounded-xl hover:border-indigo-500 hover:bg-indigo-950/10 transition-all text-center mb-6">
             {isProcessing ? (
                 <div className="flex flex-col items-center justify-center py-4">
                     <Loader2 className="animate-spin text-indigo-400 mb-2" size={32}/>
@@ -123,6 +143,61 @@ const ProductCostUploader: React.FC = () => {
                     <span className="text-slate-500 text-xs">Pastikan ada kolum: Produk, Harga Beli, Harga Jual</span>
                     <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
                 </label>
+            )}
+        </div>
+
+        {/* Paparan Senarai Master Data */}
+        <div className="bg-slate-900/60 rounded-xl border border-slate-700/50 overflow-hidden">
+            <div className="flex items-center justify-between p-4 border-b border-slate-700/50 bg-slate-800/30">
+                <h4 className="font-bold text-slate-200 flex items-center gap-2 text-sm">
+                    <List size={16} className="text-indigo-400"/>
+                    Senarai Master Data Aktif ({currentMasterList.length} Produk)
+                </h4>
+                {currentMasterList.length > 0 && (
+                    <button onClick={handleDeleteAll} className="flex items-center gap-2 text-xs font-bold text-red-400 hover:text-red-300 transition-colors">
+                        <Trash2 size={14}/> Padam Semua
+                    </button>
+                )}
+            </div>
+            
+            {currentMasterList.length > 0 ? (
+                <div className="overflow-x-auto max-h-[400px] overflow-y-auto custom-scrollbar">
+                    <table className="w-full text-sm text-left text-slate-300">
+                        <thead className="text-xs uppercase bg-slate-900/80 text-slate-400 sticky top-0 z-10 shadow-md">
+                            <tr>
+                                <th className="px-4 py-3">ID Pintar</th>
+                                <th className="px-4 py-3">Nama Produk</th>
+                                <th className="px-4 py-3">Kategori</th>
+                                <th className="px-4 py-3 text-right text-emerald-400">Kos (Beli)</th>
+                                <th className="px-4 py-3 text-right text-indigo-400">Harga (Jual)</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-800/40">
+                            {currentMasterList.map((p, idx) => (
+                                <tr key={`${p.id}-${idx}`} className="hover:bg-slate-800/40 transition-colors">
+                                    <td className="px-4 py-2 font-mono text-xs opacity-50">{p.id}</td>
+                                    <td className="px-4 py-2 font-bold text-slate-200">{p.name}</td>
+                                    <td className="px-4 py-2">
+                                        <span className="px-2 py-0.5 rounded text-xs bg-slate-800 text-slate-300 border border-slate-700">
+                                            {p.category}
+                                        </span>
+                                    </td>
+                                    <td className="px-4 py-2 text-right font-mono font-bold text-emerald-400">
+                                        RM {p.costPrice.toFixed(2)}
+                                    </td>
+                                    <td className="px-4 py-2 text-right font-mono font-bold text-indigo-400">
+                                        RM {p.salePrice.toFixed(2)}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            ) : (
+                <div className="p-8 text-center flex flex-col items-center text-slate-500">
+                    <Database size={32} className="mb-2 opacity-20"/>
+                    <p className="text-sm">Tiada Master Data dijumpai.</p>
+                </div>
             )}
         </div>
     </div>

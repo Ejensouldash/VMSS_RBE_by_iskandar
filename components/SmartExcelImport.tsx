@@ -113,11 +113,15 @@ const GEMINI_PARSER = {
             }
         }
 
-        const finalISO = `${YYYY}-${MM}-${DD}T${String(HH).padStart(2, '0')}:${String(MIN).padStart(2, '0')}:${String(SEC).padStart(2, '0')}`;
+        const finalISO = `${YYYY}-${MM}-${DD}T${String(HH).padStart(2, '0')}:${String(MIN).padStart(2, '0')}:${String(SEC).padStart(2, '0')}+08:00`;
         
         const testDate = new Date(finalISO);
         if (isNaN(testDate.getTime())) {
-            return new Date().toISOString(); 
+            // Fallback to current time in Malaysia
+            const now = new Date();
+            const msOff = now.getTimezoneOffset() * 60000;
+            const msMY = now.getTime() + msOff + (8 * 3600000); 
+            return new Date(msMY).toISOString().replace('Z', '+08:00'); 
         }
 
         return finalISO;
