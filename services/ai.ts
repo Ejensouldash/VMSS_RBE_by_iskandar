@@ -37,14 +37,14 @@ const getGreeting = (lang: Language) => {
 
 // --- MAIN PROCESSOR ---
 
-export const processNaturalLanguageQuery = (query: string): string => {
+export const processNaturalLanguageQuery = async (query: string): Promise<string> => {
   const lowerQ = query.toLowerCase();
   const lang = detectLanguage(query);
   
   // Refresh Data Snapshot (Real-time DB Access)
-  const inventory = getInventory();
-  const transactions = getTransactions();
-  const machines = getMachines();
+  const inventory = await getInventory();
+  const transactions = await getTransactions();
+  const machines = await getMachines();
 
   // --- 1. CONVERSATIONAL / CHIT-CHAT INTENTS ---
 

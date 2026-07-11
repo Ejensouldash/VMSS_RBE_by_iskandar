@@ -228,8 +228,8 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
     setIsProcessing(true);
 
     try {
-        const currentInventory = getInventory();
-        const existingTransactions = getTransactions();
+        const currentInventory = await getInventory();
+        const existingTransactions = await getTransactions();
         const existingRefs = new Set(existingTransactions.map(t => String(t.refNo)));
         
         const newUniqueTransactions: Transaction[] = [];
@@ -256,14 +256,14 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
         });
 
         if (newUniqueTransactions.length > 0) {
-            saveBulkTransactions(newUniqueTransactions);
-            if (Object.keys(stockUpdates).length > 0) saveBulkStock(stockUpdates);
+            await saveBulkTransactions(newUniqueTransactions);
+            if (Object.keys(stockUpdates).length > 0) await saveBulkStock(stockUpdates);
             notify(`Berjaya! ${newUniqueTransactions.length} rekod disimpan.`, 'success');
         } else {
             notify(`Tiada data baru ditambah. (${skippedCount} duplicate)`, 'info');
         }
 
-        if (onDataImported) onDataImported(newUniqueTransactions, getInventory());
+        if (onDataImported) onDataImported(newUniqueTransactions, await getInventory());
         setParsedRows([]);
         setFiles([]);
         setImportStats(null);

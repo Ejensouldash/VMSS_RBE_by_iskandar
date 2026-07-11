@@ -10,34 +10,15 @@ export const useTransactionSync = (initialData: Transaction[]) => {
   // FUNGSI: Tarik data dari Server Bridge (db.json)
   const fetchFromServer = useCallback(async () => {
     try {
-      // 1. Cuba panggil Server dulu
-      const res = await fetch('http://127.0.0.1:3001/api/transactions');
+      // Tarik terus dari Supabase (Fasa 2 Cloud Migration)
+      const data = await getTransactions();
       
-      if (res.ok) {
-        const data = await res.json();
-        
-        if (data && Array.isArray(data.transactions)) {
-          // 2. Jika Server ada data, kita UPDATE LocalStorage
-          mergeTransactions(data.transactions);
-          
-          // 3. Update Dashboard
-          // Sort tarikh: Paling baru di atas
-          const sorted = data.transactions.sort((a: Transaction, b: Transaction) => 
-            new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
-          );
-          
-          setTransactions(sorted);
+      if (data && Array.isArray(data)) {
+          setTransactions(data);
           setLastUpdated(new Date());
-        }
-      } else {
-        // Kalau server error, guna data LocalStorage je
-        console.warn("Server tak jawab, guna LocalStorage.");
-        setTransactions(getTransactions());
       }
     } catch (e) {
-      // Kalau network error (Server tutup), guna LocalStorage
-      // console.log("Offline Mode: Reading LocalDB");
-      setTransactions(getTransactions());
+      console.error("Gagal menarik data transaksi dari Supabase:", e);
     } finally {
       setLoading(false);
     }

@@ -31,38 +31,41 @@ export default function Planogram() {
   const [activeColorPicker, setActiveColorPicker] = useState<string | null>(null);
 
   // Initialize 6x6 Grid
-  const [grid, setGrid] = useState<GridSlot[]>(() => {
-    const slots = [];
-    const txs = getTransactions();
-    const now = Date.now();
-    const THIRTY_DAYS_MS = 1000 * 60 * 60 * 24 * 30;
-    
-    for(let r=1; r<=6; r++) {
-      for(let c=1; c<=6; c++) {
-        // Pre-fill row 1 for demo purposes
-        let product = null;
-        let recentCount = 0; // Fix: Declare here outside the if block
+  const [grid, setGrid] = useState<GridSlot[]>([]);
 
-        if (r === 1 && c <= 6) {
-             const prod = VM_CONFIG.PRODUCT_CATALOG[(c-1) % VM_CONFIG.PRODUCT_CATALOG.length];
-             // Compute recent sales velocity from real transactions (last 30 days)
-             recentCount = txs.filter(t => {
-               try {
-                 const ts = new Date(t.timestamp).getTime();
-                 return ts >= (now - THIRTY_DAYS_MS) && (t.productName || '').toLowerCase().includes((prod.name || '').toLowerCase());
-               } catch { return false; }
-             }).length;
-             product = { ...prod };
+  useEffect(() => {
+    const initGrid = async () => {
+      const slots: GridSlot[] = [];
+      const txs = await getTransactions();
+      const now = Date.now();
+      const THIRTY_DAYS_MS = 1000 * 60 * 60 * 24 * 30;
+      
+      for(let r=1; r<=6; r++) {
+        for(let c=1; c<=6; c++) {
+          let product = null;
+          let recentCount = 0;
+
+          if (r === 1 && c <= 6) {
+               const prod = VM_CONFIG.PRODUCT_CATALOG[(c-1) % VM_CONFIG.PRODUCT_CATALOG.length];
+               recentCount = txs.filter(t => {
+                 try {
+                   const ts = new Date(t.timestamp).getTime();
+                   return ts >= (now - THIRTY_DAYS_MS) && (t.productName || '').toLowerCase().includes((prod.name || '').toLowerCase());
+                 } catch { return false; }
+               }).length;
+               product = { ...prod };
+          }
+          
+          slots.push({
+            row: r, col: c, id: `R${r}-C${c}`, assignedProduct: product,
+            capacity: 10, salesVelocity: product ? recentCount : 0
+          });
         }
-        
-        slots.push({
-          row: r, col: c, id: `R${r}-C${c}`, assignedProduct: product,
-          capacity: 10, salesVelocity: product ? recentCount : 0
-        });
       }
-    }
-    return slots;
-  });
+      setGrid(slots);
+    };
+    initGrid();
+  }, []);
 
   // Filter Products for Sidebar
   const filteredProducts = VM_CONFIG.PRODUCT_CATALOG.filter(p => 
@@ -121,9 +124,9 @@ export default function Planogram() {
   };
 
   // --- AI ANALYSIS ---
-  const handleRunAiAnalysis = () => {
+  const handleRunAiAnalysis = async () => {
      // Use real inventory to provide currentStock where possible
-     const inventory = getInventory();
+     const inventory = await getInventory();
      const slotsForAnalysis = grid.filter(g => g.assignedProduct).map(g => {
        const pid = g.assignedProduct!.id;
        const inv = inventory.find(i => i.id === pid);

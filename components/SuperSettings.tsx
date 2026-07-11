@@ -57,8 +57,8 @@ const SuperSettings: React.FC<SettingsProps> = ({ user }) => {
     refreshUserList();
   }, []);
 
-  const refreshUserList = () => {
-    const data = getUsers();
+  const refreshUserList = async () => {
+    const data = await getUsers();
     setUsersList(data);
   };
 
@@ -77,15 +77,16 @@ const SuperSettings: React.FC<SettingsProps> = ({ user }) => {
   });
 
   // --- LOGIC TAMBAH USER ---
-  const handleAddUser = (e: React.FormEvent) => {
+  const handleAddUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser.name || !newUser.username || !newUser.password) {
         alert("Sila isi semua maklumat!");
         return;
     }
 
+    setLoading(true);
     // SIMPAN KE DB
-    addUser({
+    await addUser({
         name: newUser.name,
         username: newUser.username,
         password: newUser.password,
@@ -94,21 +95,24 @@ const SuperSettings: React.FC<SettingsProps> = ({ user }) => {
         status: 'active'
     });
 
-    refreshUserList(); // Update table
+    await refreshUserList(); // Update table
     setShowAddForm(false);
     setNewUser({ name: '', username: '', password: '', role: 'manager' });
-    alert(`Pengguna ${newUser.username} berjaya ditambah dan DISIMPAN!`);
+    setLoading(false);
+    alert(`Pengguna ${newUser.username} berjaya ditambah dan DISIMPAN ke Cloud!`);
   };
 
-  const handleDeleteUser = (id: number) => {
+  const handleDeleteUser = async (id: number) => {
       if (confirm("Adakah anda pasti ingin memadam pengguna ini? Tindakan ini kekal.")) {
-          const success = deleteUser(id);
+          setLoading(true);
+          const success = await deleteUser(id);
           if (success) {
-            refreshUserList();
-            alert("Pengguna berjaya dipadam.");
+            await refreshUserList();
+            alert("Pengguna berjaya dipadam dari Cloud.");
           } else {
-            alert("Tidak boleh memadam pengguna terakhir!");
+            alert("Ralat semasa memadam pengguna!");
           }
+          setLoading(false);
       }
   };
 

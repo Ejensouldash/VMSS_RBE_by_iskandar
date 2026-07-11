@@ -20,7 +20,7 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
 
   // Load fresh data on mount
   useEffect(() => {
-    setSlots(getInventory());
+    getInventory().then(data => setSlots(data));
   }, []);
 
   // Stats Calculation
@@ -40,7 +40,7 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
     setEditingSlot({ ...slot });
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (editingSlot) {
       const success = updateSlotConfig(editingSlot.id, {
         name: editingSlot.name,
@@ -50,7 +50,7 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
 
       if (success) {
         // Refresh local state immediately
-        const updated = getInventory();
+        const updated = await getInventory();
         setSlots(updated);
         setEditingSlot(null);
         notify(`Updated ${editingSlot.id} successfully.`, 'success');

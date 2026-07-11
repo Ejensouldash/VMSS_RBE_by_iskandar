@@ -261,9 +261,15 @@ export const syncInitialFromTCN = async (days = 30) => {
 };
 
 // --- MACHINES ---
-export const getMachines = (): Machine[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.MACHINES);
-  return data ? JSON.parse(data) : INITIAL_MACHINES;
+export const getMachines = async (): Promise<Machine[]> => {
+  try {
+    const { data, error } = await supabase.from('machines').select('*');
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Error fetching machines:', err);
+    return [];
+  }
 };
 
 export const updateMachineStatus = (id: string, updates: Partial<Machine>) => {
@@ -353,13 +359,15 @@ export const createServiceTicket = (ticket: ServiceTicket) => {
 };
 
 // --- USER MANAGEMENT ---
-export const getUsers = (): any[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.USERS);
-  if (!data) return INITIAL_USERS;
+export const getUsers = async (): Promise<any[]> => {
   try {
-    const users = JSON.parse(data);
-    return Array.isArray(users) ? users : INITIAL_USERS;
-  } catch(e) { return INITIAL_USERS; }
+    const { data, error } = await supabase.from('sys_users').select('id, username, name, role, email, status, last_login, created_at');
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Error fetching users:', err);
+    return [];
+  }
 };
 
 export const saveUser = (user: User) => {
@@ -379,38 +387,52 @@ export const saveUser = (user: User) => {
   return true;
 };
 
-export const authenticateUser = (username: string, pass: string) => {
-  const users = getUsers();
-  return users.find((u: any) => u.username === username && u.password === pass);
-};
-
-export const addUser = (user: any) => {
-  const users = getUsers();
-  const maxId = users.length > 0 ? Math.max(...users.map((u:any) => parseInt(String(u.id)) || 0)) : 0;
-  const newId = maxId + 1;
-  
-  const newUser = { ...user, id: newId, email: user.email || `${user.username}@vmms.local`, status: 'active' };
-  
-  users.push(newUser);
-  localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-  pushToCloud(STORAGE_KEYS.USERS, users); 
-  
-  logAction('admin', 'ADD_USER', `Added new user ${user.username}`);
-  return newUser;
-};
-
-export const deleteUser = (userId: string | number) => {
-  let users = getUsers();
-  const initialLength = users.length;
-  users = users.filter((u:any) => String(u.id) !== String(userId));
-  
-  if (users.length < initialLength) {
-      localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-      pushToCloud(STORAGE_KEYS.USERS, users); 
-      logAction('admin', 'DELETE_USER', `Deleted user ID ${userId}`);
-      return true;
+export const authenticateUser = async (username: string, pass: string) => {
+  try {
+    const { data, error } = await supabase.rpc('authenticate_sys_user', {
+      p_username: username,
+      p_password: pass
+    });
+    if (error) throw error;
+    if (data && data.length > 0) {
+      logAction(username, 'LOGIN', 'User logged in successfully');
+      return data[0];
+    }
+    return null;
+  } catch (err) {
+    console.error('Auth error:', err);
+    return null;
   }
-  return false;
+};
+
+export const addUser = async (user: any) => {
+  try {
+    const { data, error } = await supabase.rpc('create_sys_user', {
+      p_username: user.username,
+      p_password: user.password,
+      p_name: user.name,
+      p_role: user.role || 'manager',
+      p_email: user.email || `${user.username}@vmms.local`
+    });
+    if (error) throw error;
+    logAction('admin', 'ADD_USER', `Added new user ${user.username}`);
+    return { ...user, id: data, status: 'active' };
+  } catch (err) {
+    console.error('Error adding user:', err);
+    return null;
+  }
+};
+
+export const deleteUser = async (userId: string | number) => {
+  try {
+    const { error } = await supabase.from('sys_users').delete().eq('id', userId);
+    if (error) throw error;
+    logAction('admin', 'DELETE_USER', `Deleted user ID ${userId}`);
+    return true;
+  } catch (err) {
+    console.error('Error deleting user:', err);
+    return false;
+  }
 };
 
 export const getAuditLogs = (): AuditLog[] => {
@@ -419,22 +441,15 @@ export const getAuditLogs = (): AuditLog[] => {
 };
 
 // --- CORE OPERATIONS ---
-export const getInventory = (): ProductSlot[] => {
-  const stockData = localStorage.getItem(STORAGE_KEYS.STOCK_COUNTS);
-  const stockMap: Record<string, number> = stockData ? JSON.parse(stockData) : {};
-  const priceData = localStorage.getItem(STORAGE_KEYS.PRICES);
-  const priceMap: Record<string, number> = priceData ? JSON.parse(priceData) : {};
-  const nameData = localStorage.getItem(STORAGE_KEYS.NAMES);
-  const nameMap: Record<string, string> = nameData ? JSON.parse(nameData) : {};
-
-  return VM_CONFIG.SLOTS.map(config => ({
-    id: config.id,
-    name: nameMap[config.id] || config.name,
-    price: priceMap[config.id] !== undefined ? priceMap[config.id] : config.price, 
-    maxCapacity: config.maxCapacity,
-    currentStock: stockMap[config.id] !== undefined ? stockMap[config.id] : config.initialStock,
-    expiryDate: config.expiryDate
-  }));
+export const getInventory = async (): Promise<ProductSlot[]> => {
+  try {
+    const { data, error } = await supabase.from('inventory_slots').select('*');
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Error fetching inventory:', err);
+    return [];
+  }
 };
 
 export const updateProductPrice = (slotId: string, newPrice: number): boolean => {
@@ -478,57 +493,63 @@ export const updateSlotConfig = (slotId: string, updates: { name?: string, price
   } catch (e) { return false; }
 };
 
-export const getTransactions = (): Transaction[] => {
-  const data = localStorage.getItem(STORAGE_KEYS.TRANSACTIONS);
-  return data ? JSON.parse(data) : [];
+export const getTransactions = async (): Promise<Transaction[]> => {
+  try {
+    const { data, error } = await supabase.from('transactions').select('*').order('timestamp', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  } catch (err) {
+    console.error('Error fetching transactions:', err);
+    return [];
+  }
 };
 
-export const saveTransaction = (tx: Transaction) => {
-    const transactions = getTransactions();
-    transactions.unshift(tx);
-    localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(transactions));
-    pushToCloud(STORAGE_KEYS.TRANSACTIONS, transactions); 
-}
-
-export const saveBulkTransactions = (newTxs: Transaction[]) => {
-  const currentTxs = getTransactions();
-  const updatedTxs = [...newTxs, ...currentTxs];
-  
-  localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(updatedTxs));
-  pushToCloud(STORAGE_KEYS.TRANSACTIONS, updatedTxs); 
-  
-  return updatedTxs.length;
+export const saveTransaction = async (tx: Transaction) => {
+  try {
+    const { error } = await supabase.from('transactions').insert(tx);
+    if (error) throw error;
+  } catch (err) {
+    console.error('Error saving transaction:', err);
+  }
 };
 
-export const saveBulkStock = (stockUpdates: Record<string, number>) => {
-  const stockData = localStorage.getItem(STORAGE_KEYS.STOCK_COUNTS);
-  const stockMap: Record<string, number> = stockData ? JSON.parse(stockData) : {};
-  
-  Object.keys(stockUpdates).forEach(slotId => {
-      stockMap[slotId] = stockUpdates[slotId];
-  });
-  
-  localStorage.setItem(STORAGE_KEYS.STOCK_COUNTS, JSON.stringify(stockMap));
-  pushToCloud(STORAGE_KEYS.STOCK_COUNTS, stockMap); 
+export const saveBulkTransactions = async (newTxs: Transaction[]) => {
+  try {
+    const { error } = await supabase.from('transactions').insert(newTxs);
+    if (error) throw error;
+    return newTxs.length;
+  } catch (err) {
+    console.error('Error saving bulk transactions:', err);
+    return 0;
+  }
 };
 
-export const mergeTransactions = (newTxs: Transaction[]) => {
-  const currentTxs = getTransactions();
-  const existingRefs = new Set(currentTxs.map(t => t.refNo));
-  let addedCount = 0;
-  
-  newTxs.forEach(tx => {
-    if (!existingRefs.has(tx.refNo)) {
-      currentTxs.push(tx);
-      addedCount++;
+export const saveBulkStock = async (stockUpdates: Record<string, number>) => {
+  try {
+    for (const [slotId, newStock] of Object.entries(stockUpdates)) {
+      await supabase.from('inventory_slots').update({ currentStock: newStock }).eq('id', slotId);
     }
-  });
+  } catch (err) {
+    console.error('Error updating bulk stock:', err);
+  }
+};
 
-  currentTxs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-  
-  localStorage.setItem(STORAGE_KEYS.TRANSACTIONS, JSON.stringify(currentTxs));
-  pushToCloud(STORAGE_KEYS.TRANSACTIONS, currentTxs); 
-  return addedCount;
+export const mergeTransactions = async (newTxs: Transaction[]) => {
+  try {
+    const currentTxs = await getTransactions();
+    const existingRefs = new Set(currentTxs.map(t => t.refNo));
+    
+    const txsToInsert = newTxs.filter(tx => !existingRefs.has(tx.refNo));
+    
+    if (txsToInsert.length > 0) {
+      await saveBulkTransactions(txsToInsert);
+    }
+    
+    return txsToInsert.length;
+  } catch (err) {
+    console.error('Error merging transactions:', err);
+    return 0;
+  }
 };
 
 // --- DATA MANAGEMENT ---

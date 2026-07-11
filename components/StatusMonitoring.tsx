@@ -24,9 +24,9 @@ export default function StatusMonitoring() {
     refreshData();
   }, []);
 
-  const refreshData = () => {
-    // Cuba ambil dari localStorage dulu
-    const data = getMachines();
+  const refreshData = async () => {
+    // Cuba ambil dari Supabase
+    const data = await getMachines();
     setMachines(data);
     const aiResult = detectAnomalies(data);
     setHealthScore(aiResult.score);

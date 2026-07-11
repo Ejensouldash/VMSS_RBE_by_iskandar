@@ -32,8 +32,8 @@ const RoutePlanning: React.FC = () => {
     refreshData();
   }, []);
 
-  const refreshData = () => {
-    const data = getInventory();
+  const refreshData = async () => {
+    const data = await getInventory();
     calculateNeeds(data);
   };
 
@@ -49,7 +49,7 @@ const RoutePlanning: React.FC = () => {
     setReplenishList(needs);
   };
 
-  const handleRestockAll = () => {
+  const handleRestockAll = async () => {
       // Perform actual restock: set each slot currentStock to maxCapacity
       replenishList.forEach(item => {
         try {
@@ -59,7 +59,7 @@ const RoutePlanning: React.FC = () => {
         }
       });
       notify("Stock updated.", 'success');
-      const data = getInventory();
+      const data = await getInventory();
       calculateNeeds(data);
   };
 

@@ -58,7 +58,7 @@ const App: React.FC = () => {
   // Initial Load
   useEffect(() => {
     initDB();
-    setInventory(getInventory());
+    getInventory().then(data => setInventory(data));
   }, []);
 
   // --- LOGIN HANDLER ---
@@ -80,8 +80,9 @@ const App: React.FC = () => {
   const userRole = currentUser?.role || 'manager'; 
 
   // --- DATA HANDLERS ---
-  const fetchData = () => {
-    setInventory(getInventory());
+  const fetchData = async () => {
+    const inv = await getInventory();
+    setInventory(inv);
     refresh(); 
   };
 

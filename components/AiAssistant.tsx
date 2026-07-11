@@ -38,8 +38,8 @@ export default function AiAssistant() {
     // Simulate AI "Thinking" Process (Latency varies to feel natural)
     const thinkingTime = 1000 + Math.random() * 1000;
     
-    setTimeout(() => {
-      const response = processNaturalLanguageQuery(userMsg);
+    setTimeout(async () => {
+      const response = await processNaturalLanguageQuery(userMsg);
       setMessages(prev => [...prev, { role: 'system', text: response }]);
       setIsTyping(false);
     }, thinkingTime);

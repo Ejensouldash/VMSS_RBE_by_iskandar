@@ -24,22 +24,30 @@ const Login: React.FC<LoginProps> = ({ onLogin }) => {
     setError('');
     setLoading(true);
 
-    setTimeout(() => {
-      // GUNA FUNCTION DARI DB.TS
-      const foundUser = authenticateUser(username, password);
-
-      if (foundUser) {
-        onLogin({
-            id: `USR-${foundUser.id}`,
-            name: foundUser.name,
-            role: foundUser.role,
-            email: foundUser.email || 'user@vmms.local'
-        });
-      } else {
-        setError('Username atau Password salah! Sila cuba lagi.');
+    const attemptLogin = async () => {
+      try {
+        const foundUser = await authenticateUser(username, password);
+        if (foundUser) {
+          onLogin({
+              id: foundUser.id,
+              name: foundUser.name,
+              role: foundUser.role as any,
+              email: foundUser.email
+          });
+        } else {
+          setError('Username atau Password salah! Sila cuba lagi.');
+          setLoading(false);
+        }
+      } catch (err) {
+        setError('Ralat semasa menyambung ke server.');
         setLoading(false);
       }
-    }, 800);
+    };
+
+    // Delay slight for UI effect
+    setTimeout(() => {
+      attemptLogin();
+    }, 500);
   };
 
   return (
