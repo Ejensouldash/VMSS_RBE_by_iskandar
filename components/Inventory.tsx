@@ -78,24 +78,34 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
 
   // --- SUB-COMPONENTS ---
   
-  const StatsWidget = ({ label, value, sub, icon: Icon, color }: any) => (
-    <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-sm flex items-center gap-4">
-      <div className={`p-3 rounded-full bg-${color}-50 text-${color}-600`}>
-        <Icon size={24} />
+  const StatsWidget = ({ label, value, sub, icon: Icon, color }: any) => {
+    const colorMap: Record<string, { bg: string, text: string }> = {
+      blue: { bg: 'bg-blue-500/10', text: 'text-blue-400' },
+      emerald: { bg: 'bg-emerald-500/10', text: 'text-emerald-400' },
+      orange: { bg: 'bg-orange-500/10', text: 'text-orange-400' },
+      slate: { bg: 'bg-slate-500/10', text: 'text-slate-400' }
+    };
+    const mapped = colorMap[color] || { bg: 'bg-slate-500/10', text: 'text-slate-400' };
+
+    return (
+      <div className="vm-glass p-4 rounded-xl flex items-center gap-4 animate-in fade-in zoom-in-95 duration-200">
+        <div className={`p-3 rounded-xl ${mapped.bg} ${mapped.text}`}>
+          <Icon size={24} />
+        </div>
+        <div>
+           <p className="text-sm text-slate-400 font-medium">{label}</p>
+           <p className="text-xl font-black text-white">{value}</p>
+           {sub && <p className="text-xs text-slate-500">{sub}</p>}
+        </div>
       </div>
-      <div>
-         <p className="text-sm text-slate-500 font-medium">{label}</p>
-         <p className="text-xl font-bold text-slate-800">{value}</p>
-         {sub && <p className="text-xs text-slate-400">{sub}</p>}
-      </div>
-    </div>
-  );
+    );
+  };
 
   const StatusBadge = ({ stock, max }: { stock: number, max: number }) => {
     const pct = (stock / max) * 100;
-    if (pct === 0) return <span className="bg-slate-100 text-slate-500 text-[10px] font-bold px-2 py-1 rounded">EMPTY</span>;
-    if (pct < 20) return <span className="bg-rose-100 text-rose-600 text-[10px] font-bold px-2 py-1 rounded animate-pulse">LOW</span>;
-    return <span className="bg-emerald-100 text-emerald-600 text-[10px] font-bold px-2 py-1 rounded">OK</span>;
+    if (pct === 0) return <span className="bg-slate-800 text-slate-400 text-[10px] font-bold px-2.5 py-1 rounded border border-slate-700/50">EMPTY</span>;
+    if (pct < 20) return <span className="bg-rose-950/40 text-rose-400 text-[10px] font-bold px-2.5 py-1 rounded border border-rose-900/30 animate-pulse">LOW</span>;
+    return <span className="bg-emerald-950/40 text-emerald-400 text-[10px] font-bold px-2.5 py-1 rounded border border-emerald-900/30">OK</span>;
   };
 
   return (
@@ -126,7 +136,7 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
       </div>
 
       {/* 2. Controls Toolbar */}
-      <div className="flex flex-col md:flex-row justify-between items-center bg-white p-4 rounded-xl border border-slate-200 shadow-sm gap-4">
+      <div className="flex flex-col md:flex-row justify-between items-center vm-glass p-4 rounded-xl gap-4">
         
         <div className="relative w-full md:w-96">
           <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
@@ -135,22 +145,22 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
             placeholder="Search Product Name or Slot ID..." 
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full pl-10 pr-4 py-2 bg-slate-900/60 border border-slate-700/50 rounded-lg text-sm text-slate-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent placeholder-slate-500"
           />
         </div>
 
-        <div className="flex gap-2">
+        <div className="flex gap-2 bg-slate-900/40 border border-slate-700/50 p-1 rounded-xl">
           <button 
              onClick={() => setViewMode('list')}
-             className={`p-2 rounded-lg transition-colors ${viewMode === 'list' ? 'bg-blue-100 text-blue-700' : 'text-slate-400 hover:bg-slate-100'}`}
+             className={`p-2 rounded-lg transition-all ${viewMode === 'list' ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
           >
-             <ListIcon size={20} />
+             <ListIcon size={18} />
           </button>
           <button 
              onClick={() => setViewMode('grid')}
-             className={`p-2 rounded-lg transition-colors ${viewMode === 'grid' ? 'bg-blue-100 text-blue-700' : 'text-slate-400 hover:bg-slate-100'}`}
+             className={`p-2 rounded-lg transition-all ${viewMode === 'grid' ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-md' : 'text-slate-400 hover:text-slate-200'}`}
           >
-             <LayoutGrid size={20} />
+             <LayoutGrid size={18} />
           </button>
         </div>
 
@@ -160,10 +170,10 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
       {viewMode === 'list' ? (
         
         /* LIST VIEW */
-        <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden">
+        <div className="vm-glass rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm text-slate-600">
-              <thead className="bg-slate-50 text-slate-900 font-semibold border-b border-slate-200">
+            <table className="w-full text-left text-sm text-slate-300">
+              <thead className="bg-slate-900/60 text-slate-200 font-bold border-b border-slate-700/50">
                 <tr>
                   <th className="px-6 py-4">Slot</th>
                   <th className="px-6 py-4">Product Info</th>
@@ -173,48 +183,48 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
                   <th className="px-6 py-4 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-slate-100">
+              <tbody className="divide-y divide-slate-800/40">
                 {filteredSlots.map((slot) => {
                   const percentage = (slot.currentStock / slot.maxCapacity) * 100;
                   return (
-                    <tr key={slot.id} className="hover:bg-slate-50 transition-colors group">
-                      <td className="px-6 py-4 font-mono font-bold text-slate-500">{slot.id}</td>
+                    <tr key={slot.id} className="hover:bg-white/5 transition-colors group">
+                      <td className="px-6 py-4 font-mono font-bold text-slate-400">{slot.id}</td>
                       <td className="px-6 py-4">
-                        <div className="font-bold text-slate-800">{slot.name}</div>
-                        <div className="text-xs text-slate-400">Max: {slot.maxCapacity}</div>
+                        <div className="font-bold text-slate-100">{slot.name}</div>
+                        <div className="text-xs text-slate-500">Max: {slot.maxCapacity}</div>
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3 justify-center">
-                          <div className="w-24 h-2 bg-slate-100 rounded-full overflow-hidden">
+                          <div className="w-24 h-2 bg-slate-950 rounded-full overflow-hidden border border-slate-800/40">
                             <div 
                               className={`h-full rounded-full transition-all duration-500 ${
-                                percentage < 20 ? 'bg-rose-500' : percentage < 50 ? 'bg-yellow-500' : 'bg-emerald-500'
+                                percentage < 20 ? 'bg-rose-500' : percentage < 50 ? 'bg-amber-500' : 'bg-emerald-500'
                               }`}
                               style={{ width: `${percentage}%` }}
                             ></div>
                           </div>
-                          <span className="text-xs font-mono font-bold w-6">{slot.currentStock}</span>
+                          <span className="text-xs font-mono font-bold w-6 text-slate-300">{slot.currentStock}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-right font-medium">RM {slot.price.toFixed(2)}</td>
+                      <td className="px-6 py-4 text-right font-bold text-cyan-400">RM {slot.price.toFixed(2)}</td>
                       <td className="px-6 py-4 text-center">
                         <StatusBadge stock={slot.currentStock} max={slot.maxCapacity} />
                       </td>
                       <td className="px-6 py-4 text-right">
-                        <div className="flex justify-end gap-2">
+                        <div className="flex justify-end gap-1.5">
                           <button 
                              onClick={() => handleRestockMax(slot.id)}
-                             className="p-2 text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors"
+                             className="p-2 text-emerald-400 hover:bg-emerald-500/10 rounded-lg transition-colors"
                              title="Quick Restock Max"
                           >
-                             <RefreshCw size={16} />
+                             <RefreshCw size={15} />
                           </button>
                           <button 
                             onClick={() => handleEdit(slot)}
-                            className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                            className="p-2 text-indigo-400 hover:bg-indigo-500/10 rounded-lg transition-colors"
                             title="Edit Slot"
                           >
-                            <Edit2 size={16} />
+                            <Edit2 size={15} />
                           </button>
                         </div>
                       </td>
@@ -281,13 +291,13 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
 
       {/* EDIT MODAL */}
       {editingSlot && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200">
-            <div className="bg-blue-900 p-4 flex justify-between items-center text-white">
-              <h3 className="font-bold flex items-center gap-2">
-                <Edit2 size={16} /> Edit Slot: {editingSlot.id}
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="vm-glass rounded-2xl w-full max-w-md overflow-hidden animate-in zoom-in duration-200 border border-slate-700/50">
+            <div className="bg-slate-900/80 px-6 py-4 flex justify-between items-center text-white border-b border-slate-800">
+              <h3 className="font-bold flex items-center gap-2 text-slate-200">
+                <Edit2 size={16} className="text-indigo-400" /> Edit Slot: {editingSlot.id}
               </h3>
-              <button onClick={() => setEditingSlot(null)} className="text-blue-200 hover:text-white">
+              <button onClick={() => setEditingSlot(null)} className="text-slate-400 hover:text-white p-1 hover:bg-white/5 rounded-lg transition-colors">
                 <X size={20} />
               </button>
             </div>
@@ -295,40 +305,40 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
             <div className="p-6 space-y-4">
               
               <div>
-                <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Product Name</label>
+                <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Product Name</label>
                 <input 
                   type="text" 
                   value={editingSlot.name} 
                   onChange={(e) => setEditingSlot({ ...editingSlot, name: e.target.value })}
-                  className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-medium focus:ring-2 focus:ring-blue-500 outline-none"
+                  className="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-4 py-2 font-medium text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Price (RM)</label>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Price (RM)</label>
                     <div className="relative">
-                      <span className="absolute left-3 top-2 text-slate-400">RM</span>
+                      <span className="absolute left-3 top-2 text-slate-500 font-bold">RM</span>
                       <input 
                         type="number" 
                         step="0.10"
                         value={editingSlot.price} 
                         onChange={(e) => setEditingSlot({ ...editingSlot, price: parseFloat(e.target.value) })}
-                        className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                        className="w-full bg-slate-950/80 border border-slate-800 rounded-lg pl-10 pr-4 py-2 font-bold text-cyan-400 focus:ring-2 focus:ring-indigo-500 outline-none"
                       />
                     </div>
                  </div>
                  <div>
-                    <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Current Stock</label>
+                    <label className="block text-xs font-bold text-slate-400 uppercase tracking-wider mb-1.5">Current Stock</label>
                     <div className="flex items-center gap-2">
                        <input 
                           type="number" 
                           max={editingSlot.maxCapacity}
                           value={editingSlot.currentStock} 
                           onChange={(e) => setEditingSlot({ ...editingSlot, currentStock: parseInt(e.target.value) })}
-                          className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-2 font-bold text-slate-800 focus:ring-2 focus:ring-blue-500 outline-none"
+                          className="w-full bg-slate-950/80 border border-slate-800 rounded-lg px-4 py-2 font-bold text-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
                        />
-                       <span className="text-xs text-slate-400">/ {editingSlot.maxCapacity}</span>
+                       <span className="text-xs text-slate-500">/ {editingSlot.maxCapacity}</span>
                     </div>
                  </div>
               </div>
@@ -336,13 +346,13 @@ const Inventory: React.FC<InventoryProps> = ({ slots: initialSlots }) => {
               <div className="pt-4 flex gap-3">
                  <button 
                    onClick={() => handleRestockMax(editingSlot.id)}
-                   className="flex-1 py-3 bg-emerald-50 text-emerald-600 font-bold rounded-xl text-sm hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
+                   className="flex-1 py-3 bg-emerald-950/30 text-emerald-400 border border-emerald-900/30 font-bold rounded-xl text-sm hover:bg-emerald-900/20 transition-colors flex items-center justify-center gap-2"
                  >
                    <PlusCircle size={16} /> Refill Max
                  </button>
                  <button 
                    onClick={handleSave}
-                   className="flex-1 py-3 bg-blue-600 text-white font-bold rounded-xl text-sm hover:bg-blue-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-200"
+                   className="flex-1 py-3 bg-indigo-600 text-white font-bold rounded-xl text-sm hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-indigo-950/30"
                  >
                    <Save size={16} /> Save Changes
                  </button>

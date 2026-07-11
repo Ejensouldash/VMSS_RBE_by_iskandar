@@ -84,43 +84,43 @@ const ProductCostUploader: React.FC = () => {
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border border-slate-200 p-6 mb-6 animate-in fade-in slide-in-from-top-2">
+    <div className="vm-glass rounded-2xl p-6 mb-6 animate-in fade-in slide-in-from-top-2">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-4">
             <div>
-                <h3 className="font-bold text-lg text-slate-800 flex items-center gap-2">
-                    <div className="p-2 bg-blue-600 rounded-lg text-white shadow-md">
+                <h3 className="font-bold text-lg text-white flex items-center gap-2">
+                    <div className="p-2 bg-indigo-600 rounded-lg text-white shadow-md">
                         <Database size={20}/> 
                     </div>
                     Tetapan Kos Produk (Master Data)
                 </h3>
-                <p className="text-slate-500 text-sm mt-1">
+                <p className="text-slate-400 text-sm mt-1">
                     Upload fail "Data Produk & Keuntungan" di sini supaya sistem boleh mengira untung bersih.
                 </p>
             </div>
 
             {stats && (
-                <div className={`text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-2 ${stats.includes('Ralat') ? 'bg-red-50 text-red-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                <div className={`text-xs font-bold px-3 py-2 rounded-lg flex items-center gap-2 border ${stats.includes('Ralat') ? 'bg-red-950/30 text-red-400 border-red-500/20' : 'bg-emerald-950/30 text-emerald-400 border-emerald-500/20'}`}>
                     {stats.includes('Ralat') ? <AlertCircle size={14}/> : <CheckCircle size={14}/>}
                     {stats}
                 </div>
             )}
         </div>
         
-        <div className="p-6 bg-slate-50 border-2 border-dashed border-slate-300 rounded-xl hover:border-blue-400 hover:bg-blue-50/30 transition-all text-center">
+        <div className="p-6 bg-slate-900/40 border-2 border-dashed border-slate-700/60 rounded-xl hover:border-indigo-500 hover:bg-indigo-950/10 transition-all text-center">
             {isProcessing ? (
                 <div className="flex flex-col items-center justify-center py-4">
-                    <Loader2 className="animate-spin text-blue-600 mb-2" size={32}/>
-                    <p className="text-sm font-bold text-slate-600">Sedang Membaca Database Produk...</p>
+                    <Loader2 className="animate-spin text-indigo-400 mb-2" size={32}/>
+                    <p className="text-sm font-bold text-slate-300">Sedang Membaca Database Produk...</p>
                 </div>
             ) : (
                 <label className="cursor-pointer flex flex-col items-center justify-center py-2 group">
-                    <div className="w-14 h-14 bg-white text-blue-500 rounded-full flex items-center justify-center mb-3 shadow-sm group-hover:scale-110 transition-transform">
+                    <div className="w-14 h-14 bg-slate-800 text-indigo-400 rounded-full flex items-center justify-center mb-3 border border-slate-700/50 shadow-md group-hover:scale-110 transition-transform">
                         <Upload size={24}/>
                     </div>
-                    <span className="text-slate-700 font-bold text-sm mb-1">
+                    <span className="text-slate-300 font-bold text-sm mb-1">
                         {fileName ? `Tukar Fail: ${fileName}` : 'Klik untuk Upload Fail Excel Produk'}
                     </span>
-                    <span className="text-slate-400 text-xs">Pastikan ada kolum: Produk, Harga Beli, Harga Jual</span>
+                    <span className="text-slate-500 text-xs">Pastikan ada kolum: Produk, Harga Beli, Harga Jual</span>
                     <input type="file" className="hidden" accept=".xlsx, .xls" onChange={handleFileUpload} />
                 </label>
             )}

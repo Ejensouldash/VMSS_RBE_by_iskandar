@@ -290,27 +290,27 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
   };
 
   return (
-    <div className="bg-white p-6 rounded-2xl shadow-xl border border-slate-200 mb-6 relative overflow-hidden group transition-all duration-500 hover:border-emerald-300 animate-in slide-in-from-top-4">
+    <div className="vm-glass p-6 rounded-2xl mb-6 relative overflow-hidden group transition-all duration-500 hover:border-emerald-500/40 animate-in slide-in-from-top-4">
       <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
         <Cpu size={180} className="text-emerald-600" />
       </div>
 
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
         <div>
-          <h3 className="text-xl font-black text-slate-800 flex items-center gap-2">
-            <div className="p-2 bg-emerald-600 rounded-xl text-white shadow-emerald-200 shadow-lg">
+          <h3 className="text-xl font-black text-white flex items-center gap-2">
+            <div className="p-2 bg-emerald-600 rounded-xl text-white shadow-emerald-800/40 shadow-lg">
               <CalendarCheck size={24} />
             </div>
             Smart Import V17
           </h3>
-          <p className="text-xs text-slate-500 mt-1 font-medium flex items-center gap-2">
+          <p className="text-xs text-slate-400 mt-1 font-medium flex items-center gap-2">
             <ShieldCheck size={14} className="text-emerald-500" /> 
             Profit Engine Active • Bulletproof Date • Anti-Duplicate
           </p>
         </div>
 
         {parsedRows.length > 0 && (
-          <button onClick={() => {setFiles([]); setParsedRows([]);}} className="flex items-center gap-2 text-xs font-bold text-red-500 bg-red-50 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors">
+          <button onClick={() => {setFiles([]); setParsedRows([]);}} className="flex items-center gap-2 text-xs font-bold text-red-400 bg-red-950/30 border border-red-900/30 px-3 py-2 rounded-lg hover:bg-red-900/20 transition-colors">
             <Trash2 size={14} /> Padam Pilihan
           </button>
         )}
@@ -320,23 +320,23 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
         <div className="relative">
           <div className={`
             border-2 border-dashed rounded-2xl p-8 text-center flex flex-col items-center justify-center min-h-[220px] transition-all duration-300
-            ${files.length > 0 ? 'border-emerald-500 bg-emerald-50/30' : 'border-slate-300 bg-slate-50 hover:bg-emerald-50/50 hover:border-emerald-400'}
+            ${files.length > 0 ? 'border-emerald-500 bg-emerald-950/20' : 'border-slate-700 bg-slate-900/40 hover:bg-emerald-950/10 hover:border-emerald-500/50'}
           `}>
             <input type="file" accept=".xlsx, .xls, .csv" multiple onChange={(e) => e.target.files && setFiles(Array.from(e.target.files))} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20" />
             {files.length > 0 ? (
               <div className="animate-in zoom-in duration-300 flex flex-col items-center">
-                <div className="w-20 h-20 bg-emerald-100 text-emerald-600 rounded-3xl flex items-center justify-center mb-4 shadow-inner">
+                <div className="w-20 h-20 bg-emerald-950 text-emerald-400 rounded-3xl flex items-center justify-center mb-4 shadow-inner border border-emerald-800/30">
                   <CheckCircle size={40} />
                 </div>
-                <p className="text-emerald-900 font-black text-lg">{files.length} Fail Dipilih</p>
+                <p className="text-emerald-400 font-black text-lg">{files.length} Fail Dipilih</p>
               </div>
             ) : (
               <div className="flex flex-col items-center">
-                <div className="w-20 h-20 bg-indigo-100 text-indigo-600 rounded-3xl flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <div className="w-20 h-20 bg-slate-800 text-indigo-400 rounded-3xl flex items-center justify-center mb-4 border border-slate-700/50 group-hover:scale-110 transition-transform">
                   <Upload size={36} />
                 </div>
-                <p className="text-slate-700 font-bold text-lg">Upload Fail Transaksi</p>
-                <p className="text-xs text-slate-400 mt-2 px-10">Sistem akan automatik mengira UNTUNG BERSIH berdasarkan fail Kos Produk.</p>
+                <p className="text-slate-200 font-bold text-lg">Upload Fail Transaksi</p>
+                <p className="text-xs text-slate-500 mt-2 px-10">Sistem akan automatik mengira UNTUNG BERSIH berdasarkan fail Kos Produk.</p>
               </div>
             )}
           </div>
@@ -344,9 +344,9 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
 
         <div className="flex flex-col">
           {isProcessing ? (
-            <div className="flex-1 flex flex-col items-center justify-center bg-slate-50 rounded-2xl border border-slate-100">
-              <Loader2 className="animate-spin text-emerald-600 mb-4" size={48} />
-              <p className="font-bold text-slate-600">Sedang Mengira Keuntungan...</p>
+            <div className="flex-1 flex flex-col items-center justify-center bg-slate-900/40 rounded-2xl border border-slate-800">
+              <Loader2 className="animate-spin text-emerald-400 mb-4" size={48} />
+              <p className="font-bold text-slate-300">Sedang Mengira Keuntungan...</p>
             </div>
           ) : parsedRows.length > 0 ? (
             <div className="flex-1 flex flex-col space-y-4 animate-in fade-in slide-in-from-right-4">
@@ -371,14 +371,14 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
 
               <button 
                 onClick={commitImport}
-                className="group relative w-full bg-slate-900 hover:bg-black text-white font-black py-5 px-6 rounded-2xl shadow-2xl flex items-center justify-center gap-3 transition-all active:scale-95 overflow-hidden"
+                className="group relative w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-5 px-6 rounded-2xl shadow-lg shadow-emerald-950/20 flex items-center justify-center gap-3 transition-all active:scale-95 overflow-hidden"
               >
                 <span className="relative z-10">SAHKAN & IMPORT</span>
                 <ArrowRight size={20} className="relative z-10 group-hover:translate-x-2 transition-transform" />
               </button>
             </div>
           ) : (
-            <div className="flex-1 flex flex-col items-center justify-center text-slate-400 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50/50">
+            <div className="flex-1 flex flex-col items-center justify-center text-slate-500 border-2 border-dashed border-slate-700/50 rounded-2xl bg-slate-900/20">
               <Layout size={40} className="mb-3 opacity-20" />
               <p className="text-center text-sm font-medium px-10">Upload fail untuk mulakan analisis.</p>
             </div>
