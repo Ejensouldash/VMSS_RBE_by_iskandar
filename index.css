@@ -1,0 +1,159 @@
+/* =====================================================================
+   VMMS.PRO  —  Futuristic Enterprise Theme
+   Global styles layered on top of the Tailwind CDN build.
+   ===================================================================== */
+
+:root {
+  --vm-bg: #060b18;
+  --vm-bg-soft: #0b1424;
+  --vm-panel: rgba(19, 30, 54, 0.55);
+  --vm-border: rgba(99, 130, 255, 0.16);
+  --vm-cyan: #22d3ee;
+  --vm-indigo: #6366f1;
+  --vm-violet: #a855f7;
+  --vm-emerald: #10b981;
+  --vm-amber: #f59e0b;
+}
+
+html { scroll-behavior: smooth; }
+
+/* ---- Futuristic app background: deep space + subtle grid + aurora ---- */
+.vm-app-bg {
+  background-color: var(--vm-bg);
+  background-image:
+    radial-gradient(circle at 15% -10%, rgba(99, 102, 241, 0.18), transparent 45%),
+    radial-gradient(circle at 100% 0%, rgba(168, 85, 247, 0.14), transparent 40%),
+    radial-gradient(circle at 50% 120%, rgba(34, 211, 238, 0.12), transparent 45%);
+  position: relative;
+}
+.vm-grid::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(99, 130, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(99, 130, 255, 0.05) 1px, transparent 1px);
+  background-size: 44px 44px;
+  mask-image: radial-gradient(circle at 50% 30%, #000 0%, transparent 80%);
+  pointer-events: none;
+}
+
+/* ---- Glass panels ---- */
+.vm-glass {
+  background: var(--vm-panel);
+  border: 1px solid var(--vm-border);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  box-shadow: 0 8px 40px rgba(2, 6, 23, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+.vm-glass-hover {
+  transition: transform .35s cubic-bezier(.2,.7,.3,1), box-shadow .35s ease, border-color .35s ease;
+}
+.vm-glass-hover:hover {
+  transform: translateY(-4px);
+  border-color: rgba(99, 130, 255, 0.4);
+  box-shadow: 0 18px 60px rgba(56, 89, 255, 0.22), inset 0 1px 0 rgba(255,255,255,.06);
+}
+
+/* ---- Animated gradient border (for hero / key cards) ---- */
+.vm-neon {
+  position: relative;
+}
+.vm-neon::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(120deg, var(--vm-cyan), var(--vm-indigo), var(--vm-violet), var(--vm-cyan));
+  background-size: 300% 300%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: vm-border-flow 6s linear infinite;
+  opacity: .55;
+  pointer-events: none;
+}
+@keyframes vm-border-flow {
+  0% { background-position: 0% 50%; }
+  100% { background-position: 300% 50%; }
+}
+
+/* ---- Text gradient ---- */
+.vm-text-gradient {
+  background: linear-gradient(90deg, #e0e7ff, #67e8f9 40%, #a78bfa 80%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- Glow utilities ---- */
+.vm-glow-cyan { box-shadow: 0 0 24px rgba(34, 211, 238, .35); }
+.vm-glow-indigo { box-shadow: 0 0 24px rgba(99, 102, 241, .4); }
+.vm-glow-emerald { box-shadow: 0 0 24px rgba(16, 185, 129, .35); }
+
+/* ---- Live pulse dot ---- */
+.vm-pulse { position: relative; }
+.vm-pulse::before {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border-radius: 9999px;
+  background: currentColor;
+  opacity: .5;
+  animation: vm-ping 1.6s cubic-bezier(0,0,.2,1) infinite;
+}
+@keyframes vm-ping {
+  75%, 100% { transform: scale(2.2); opacity: 0; }
+}
+
+/* ---- Floating animation ---- */
+@keyframes vm-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+.vm-float { animation: vm-float 6s ease-in-out infinite; }
+
+/* ---- Shimmer for loading / accents ---- */
+@keyframes vm-shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.vm-shimmer {
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent);
+  background-size: 200% 100%;
+  animation: vm-shimmer 2.2s infinite;
+}
+
+/* ---- Count-up entrance ---- */
+@keyframes vm-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.vm-rise { animation: vm-rise .6s cubic-bezier(.2,.7,.3,1) both; }
+.vm-rise-1 { animation-delay: .05s; }
+.vm-rise-2 { animation-delay: .12s; }
+.vm-rise-3 { animation-delay: .19s; }
+.vm-rise-4 { animation-delay: .26s; }
+
+/* ---- Custom scrollbar ---- */
+.custom-scrollbar::-webkit-scrollbar,
+body ::-webkit-scrollbar { width: 8px; height: 8px; }
+.custom-scrollbar::-webkit-scrollbar-track,
+body ::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar-thumb,
+body ::-webkit-scrollbar-thumb {
+  background: linear-gradient(180deg, rgba(99,102,241,.6), rgba(34,211,238,.6));
+  border-radius: 9999px;
+}
+.custom-scrollbar::-webkit-scrollbar-thumb:hover,
+body ::-webkit-scrollbar-thumb:hover { background: rgba(129,140,248,.9); }
+
+/* Recharts tooltip harmonised with dark theme */
+.recharts-default-tooltip {
+  background: rgba(11, 20, 36, 0.92) !important;
+  border: 1px solid rgba(99, 130, 255, 0.25) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 10px 40px rgba(0,0,0,.5) !important;
+}
+.recharts-tooltip-label { color: #cbd5e1 !important; }

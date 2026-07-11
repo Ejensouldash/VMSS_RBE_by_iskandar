@@ -24,9 +24,6 @@ import AiAssistant from './components/AiAssistant';
 import SuperSettings from './components/SuperSettings';
 import Login from './components/Login'; 
 
-// Smart Import
-import SmartExcelImport from './components/SmartExcelImport'; 
-
 import { 
   LayoutDashboard, Package, List, RefreshCw, Trash2, ShieldCheck, 
   Map, Truck, Building2, FileText, UserCircle, CreditCard, Scan, 
@@ -117,11 +114,11 @@ const App: React.FC = () => {
         onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
         className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
           activeTab === id 
-            ? 'bg-blue-600 text-white shadow-lg shadow-blue-500/30' 
-            : 'text-slate-400 hover:bg-slate-800 hover:text-white'
+            ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/20' 
+            : 'text-slate-400 hover:bg-white/5 hover:text-white'
         }`}
       >
-        <Icon size={20} className={`${activeTab === id ? 'text-white' : 'text-slate-400 group-hover:text-white'}`} />
+        <Icon size={20} className={`${activeTab === id ? 'text-white' : 'text-slate-400 group-hover:text-cyan-300'}`} />
         <span className="font-medium">{label}</span>
       </button>
     );
@@ -134,7 +131,7 @@ const App: React.FC = () => {
 
   // --- MAIN APP ---
   return (
-    <div className="flex h-screen bg-slate-50 overflow-hidden font-sans">
+    <div className="flex h-screen bg-[#060b18] overflow-hidden font-sans">
       
       {/* MOBILE OVERLAY */}
       {isSidebarOpen && (
@@ -246,7 +243,7 @@ const App: React.FC = () => {
       </aside>
 
       {/* --- MAIN CONTENT --- */}
-      <main className="flex-1 overflow-y-auto bg-slate-50 relative">
+      <main className="flex-1 overflow-y-auto bg-[#060b18] relative custom-scrollbar">
         
         {/* Floating AI */}
         <div className="fixed bottom-6 right-6 z-30">
@@ -258,30 +255,29 @@ const App: React.FC = () => {
         </div>
 
         {/* Header Bar */}
-        <header className="sticky top-0 z-20 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4 flex items-center justify-between shadow-sm">
+        <header className="sticky top-0 z-20 bg-[#0b1424]/80 backdrop-blur-md border-b border-white/10 px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-4">
-            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 hover:bg-slate-100 rounded-lg text-slate-600">
+            <button onClick={() => setIsSidebarOpen(true)} className="lg:hidden p-2 hover:bg-white/10 rounded-lg text-slate-300">
               <List size={24} />
             </button>
             <div>
-              <h2 className="text-xl font-bold text-slate-800 capitalize flex items-center gap-2">
+              <h2 className="text-xl font-bold text-white capitalize flex items-center gap-2">
                 {activeTab.replace('_', ' ')}
-                {loading && <span className="text-xs font-normal text-blue-500 animate-pulse">(Syncing...)</span>}
+                {loading && <span className="text-xs font-normal text-cyan-400 animate-pulse">(Syncing...)</span>}
               </h2>
-              <p className="text-xs text-slate-400 font-mono">
+              <p className="text-xs text-slate-500 font-mono">
                  ID: {currentUser.id} | {lastUpdated ? lastUpdated.toLocaleTimeString() : 'Live'}
               </p>
             </div>
           </div>
 
           <div className="flex items-center gap-3">
-             <button onClick={fetchData} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-full transition-all" title="Force Sync">
+             <button onClick={fetchData} className="p-2 text-slate-400 hover:text-cyan-400 hover:bg-white/10 rounded-full transition-all" title="Force Sync">
               <RefreshCw size={20} className={loading ? 'animate-spin' : ''} />
             </button>
-            <div className="h-8 w-[1px] bg-slate-200 mx-2"></div>
-            
-            {/* Buang selector bahasa sebab kita dah hardcode English */}
-            <div className="flex items-center gap-2 px-3 py-1 bg-slate-100 rounded-lg text-xs font-bold text-slate-500">
+            <div className="h-8 w-[1px] bg-white/10 mx-2"></div>
+
+            <div className="flex items-center gap-2 px-3 py-1 bg-white/5 border border-white/10 rounded-lg text-xs font-bold text-slate-400">
                EN (System Default)
             </div>
           </div>
@@ -291,14 +287,10 @@ const App: React.FC = () => {
         <div className="p-6 max-w-7xl mx-auto">
           
           {activeTab === 'dashboard' && (
-            <>
-              {userRole === 'super_admin' && (
-                  <div className="mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
-                    <SmartExcelImport onDataImported={handleSmartImport} />
-                  </div>
-              )}
-              <Dashboard transactions={transactions} />
-            </>
+            <Dashboard
+              transactions={transactions}
+              onDataImported={userRole === 'super_admin' ? handleSmartImport : undefined}
+            />
           )}
 
           {activeTab === 'sales_analytics' && <SalesAnalytics transactions={transactions} inventory={inventory} />}

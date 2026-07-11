@@ -1,435 +1,389 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Transaction } from '../types';
-import { 
-  DollarSign, ShoppingBag, CreditCard, Activity, 
-  TrendingUp, Clock, Zap, Award, Filter, Cpu, Wallet, Star,
-  Database, FileSpreadsheet, ChevronDown, ChevronUp, X
+import {
+  DollarSign, ShoppingBag, Activity, TrendingUp, TrendingDown, Clock,
+  Zap, Award, Wallet, Database, FileSpreadsheet, ChevronDown, ChevronUp,
+  X, Sparkles, Gauge, Layers, ArrowUpRight, Target
 } from 'lucide-react';
-import { 
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
-  AreaChart, Area, PieChart as RePie, Pie, Cell, Legend
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, PieChart as RePie, Pie, Cell, RadialBarChart, RadialBar,
 } from 'recharts';
 
-import ProductCostUploader from '../components/ProductCostUploader'; 
+import ProductCostUploader from '../components/ProductCostUploader';
 import SmartExcelImport from '../components/SmartExcelImport';
+import { computeDashboardMetrics, formatRM, formatCompactRM } from '../services/profit';
 
 interface DashboardProps {
   transactions: Transaction[];
-  onDataImported: (data: any[], inventory: any[]) => void;
+  onDataImported?: (data: any[], inventory: any[]) => void;
 }
 
 const PAYMENT_COLORS: Record<string, string> = {
-  'Cash': '#10b981',             
-  'DuitNow QR': '#ec4899',       
-  'MAE by Maybank2u': '#f59e0b', 
-  'TNG QR (MYR)': '#3b82f6',     
-  'Debit Card': '#8b5cf6',       
-  'Other': '#94a3b8'             
+  'Cash': '#10b981',
+  'DuitNow QR': '#ec4899',
+  'MAE by Maybank2u': '#f59e0b',
+  'TNG QR (MYR)': '#22d3ee',
+  'Debit Card': '#a855f7',
+  'E-Wallet': '#6366f1',
+  'Other': '#64748b',
 };
-
-const formatRM = (val: number) => 
-  new Intl.NumberFormat('en-MY', { style: 'currency', currency: 'MYR' }).format(val);
+const DONUT_FALLBACK = ['#6366f1', '#22d3ee', '#a855f7', '#10b981', '#f59e0b', '#ec4899', '#64748b'];
 
 const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) => {
-  
-  // --- STATE ---
-  const [timeFilter, setTimeFilter] = useState<'today' | 'yesterday' | 'week' | 'month' | 'all'>('today');
+  const [trendMode, setTrendMode] = useState<'24h' | '7d' | '12m'>('7d');
   const [activeSection, setActiveSection] = useState<'none' | 'master' | 'import'>('none');
+  const [clock, setClock] = useState(new Date());
 
-  // --- LOGIC FILTER DATA ---
-  const filteredData = useMemo(() => {
-    const now = new Date();
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const yesterdayStart = todayStart - 86400000; 
-    const weekStart = todayStart - (7 * 86400000); 
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime(); 
+  useEffect(() => {
+    const t = setInterval(() => setClock(new Date()), 1000);
+    return () => clearInterval(t);
+  }, []);
 
-    return transactions.filter(t => {
-      const tTime = new Date(t.timestamp).getTime();
-      switch (timeFilter) {
-        case 'today': return tTime >= todayStart;
-        case 'yesterday': return tTime >= yesterdayStart && tTime < todayStart; 
-        case 'week': return tTime >= weekStart;
-        case 'month': return tTime >= monthStart;
-        default: return true;
-      }
-    });
-  }, [transactions, timeFilter]);
+  const m = useMemo(() => computeDashboardMetrics(transactions, new Date()), [transactions, clock.getMinutes()]);
 
-  // --- STATISTIK ---
-  const stats = useMemo(() => {
-    const totalSales = filteredData.reduce((sum, t) => sum + t.amount, 0);
-    const totalProfit = filteredData.reduce((sum, t) => sum + (t.profit || 0), 0);
-    const totalTransactions = filteredData.length;
-    const avgTransactionValue = totalTransactions > 0 ? totalSales / totalTransactions : 0;
-    return { totalSales, totalProfit, totalTransactions, avgTransactionValue };
-  }, [filteredData]);
+  const trendData = useMemo(() => {
+    if (trendMode === '24h') return m.hourlyToday.map(p => ({ name: p.label, Revenue: p.revenue, Profit: p.profit }));
+    if (trendMode === '12m') return m.last12Months.map(p => ({ name: p.label, Revenue: p.revenue, Profit: p.profit }));
+    return m.last7Days.map(p => ({ name: p.label, Revenue: p.revenue, Profit: p.profit }));
+  }, [m, trendMode]);
 
-  // --- CHART DATA ---
-  const paymentMethods = useMemo(() => {
-    const counts: Record<string, number> = {};
-    filteredData.forEach(t => { 
-      const method = t.paymentMethod || 'Other';
-      counts[method] = (counts[method] || 0) + 1;
-    });
-    return Object.entries(counts).map(([name, value]) => ({ name, value }));
-  }, [filteredData]);
+  const paymentData = useMemo(
+    () => m.paymentMix.map((p, i) => ({ ...p, color: PAYMENT_COLORS[p.name] || DONUT_FALLBACK[i % DONUT_FALLBACK.length] })),
+    [m.paymentMix]
+  );
 
-  const salesTrend = useMemo(() => {
-    const days: Record<string, number> = {};
-    const today = new Date();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const key = d.toISOString().split('T')[0];
-      days[key] = 0;
-    }
-    transactions.forEach(t => { 
-      const key = t.timestamp.split('T')[0];
-      if (days[key] !== undefined) days[key] += t.amount;
-    });
-    return Object.entries(days).map(([date, amount]) => ({
-      date: new Date(date).toLocaleDateString('ms-MY', { day: '2-digit', month: 'short' }),
-      amount
-    }));
-  }, [transactions]);
+  const maxProductProfit = Math.max(1, ...m.topProducts.map(p => p.profit));
+  const peakHour = m.hourlyToday.reduce((best, cur) => (cur.revenue > best.revenue ? cur : best), m.hourlyToday[0]);
+  const marginGauge = [{ name: 'Margin', value: Math.max(0, Math.min(100, m.month.margin)), fill: '#22d3ee' }];
 
-  const hourlyTraffic = useMemo(() => {
-    const hours = Array(24).fill(0);
-    filteredData.forEach(t => {
-      const h = new Date(t.timestamp).getHours();
-      hours[h]++;
-    });
-    return hours.map((count, hour) => ({ hour: `${hour}:00`, count }));
-  }, [filteredData]);
-
-  const topProducts = useMemo(() => {
-    const products: Record<string, number> = {};
-    filteredData.forEach(t => {
-      products[t.productName] = (products[t.productName] || 0) + 1;
-    });
-    return Object.entries(products)
-      .sort(([, a], [, b]) => b - a)
-      .slice(0, 5)
-      .map(([name, count]) => ({ name, count }));
-  }, [filteredData]);
-
-  const insights = useMemo(() => {
-    const peakHourIndex = hourlyTraffic.reduce((maxIdx, curr, idx, arr) => curr.count > arr[maxIdx].count ? idx : maxIdx, 0);
-    const peakHour = hourlyTraffic[peakHourIndex]?.hour || '12:00';
-    const lastDaySales = salesTrend[salesTrend.length - 1]?.amount || 0;
-    const forecast = lastDaySales * 1.1; 
-    return { peak: peakHour, forecast: formatRM(forecast) };
-  }, [hourlyTraffic, salesTrend]);
-
-  const getFilterLabel = () => {
-      switch(timeFilter) {
-          case 'today': return 'Hari Ini';
-          case 'yesterday': return 'Semalam';
-          case 'week': return 'Minggu Ini';
-          case 'month': return 'Bulan Ini';
-          default: return 'Keseluruhan';
-      }
-  }
+  const kpis = [
+    { data: m.thisHour, icon: Clock, accent: 'from-cyan-400 to-sky-500', glow: 'vm-glow-cyan', ring: 'text-cyan-300', sub: `Peak today ${peakHour?.label ?? '--'}` },
+    { data: m.today, icon: DollarSign, accent: 'from-indigo-400 to-violet-500', glow: 'vm-glow-indigo', ring: 'text-indigo-300', growth: m.todayVsYesterdayPct },
+    { data: m.week, icon: Layers, accent: 'from-fuchsia-400 to-purple-500', glow: '', ring: 'text-fuchsia-300' },
+    { data: m.month, icon: Award, accent: 'from-emerald-400 to-teal-500', glow: 'vm-glow-emerald', ring: 'text-emerald-300' },
+  ];
 
   return (
-    <div className="p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      
-      {/* HEADER & FILTER */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-        <div>
-          <h1 className="text-3xl font-black text-slate-800 tracking-tight flex items-center gap-3">
-            <div className="p-2 bg-indigo-600 rounded-xl text-white shadow-lg shadow-indigo-200">
-              <Activity size={28} />
-            </div>
-            Dashboard Jualan
-          </h1>
-          <p className="text-slate-500 mt-2 font-medium flex items-center gap-2">
-            <Clock size={14} /> Data: <span className="text-indigo-600 font-bold">{getFilterLabel()}</span>
-          </p>
-        </div>
+    <div className="vm-app-bg vm-grid -m-6 p-6 min-h-full text-slate-100 space-y-8">
 
-        <div className="flex bg-white p-1 rounded-xl shadow-sm border border-slate-200 overflow-x-auto">
-            {[
-                { id: 'today', label: 'Hari Ini' },
-                { id: 'yesterday', label: 'Semalam' },
-                { id: 'week', label: 'Minggu Ini' },
-                { id: 'month', label: 'Bulan Ini' },
-                { id: 'all', label: 'Semua' }
-            ].map((f) => (
+      {/* ============ HERO HEADER ============ */}
+      <div className="relative vm-glass vm-neon rounded-3xl p-6 md:p-8 overflow-hidden vm-rise">
+        <div className="absolute -top-16 -right-10 opacity-20 vm-float">
+          <Activity size={220} className="text-indigo-400" />
+        </div>
+        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div>
+            <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.25em] text-cyan-300/80 uppercase mb-2">
+              <span className="text-cyan-400 vm-pulse inline-block w-1.5 h-1.5 rounded-full bg-cyan-400" />
+              VMMS · Command Center
+            </div>
+            <h1 className="text-3xl md:text-4xl font-black tracking-tight vm-text-gradient">
+              Profit Intelligence Dashboard
+            </h1>
+            <p className="text-slate-400 mt-2 text-sm flex items-center gap-2 font-mono">
+              <Clock size={14} className="text-cyan-400" />
+              {clock.toLocaleDateString('en-MY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' })}
+              <span className="text-cyan-300">{clock.toLocaleTimeString('en-MY')}</span>
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="vm-glass rounded-2xl px-5 py-3 text-right">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Net Profit · Month</p>
+              <p className="text-2xl font-black text-emerald-400">{formatRM(m.month.profit)}</p>
+            </div>
+            <div className="vm-glass rounded-2xl px-5 py-3 text-right">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">All-Time Revenue</p>
+              <p className="text-2xl font-black text-white">{formatCompactRM(m.all.revenue)}</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* ============ DATA CONTROL ============ */}
+      {onDataImported && (
+        <div className="vm-glass rounded-2xl p-2 vm-rise vm-rise-1">
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              onClick={() => setActiveSection(activeSection === 'master' ? 'none' : 'master')}
+              className={`flex items-center justify-center gap-3 py-3 rounded-xl transition-all border font-bold text-sm ${
+                activeSection === 'master'
+                  ? 'bg-indigo-500/20 text-indigo-200 border-indigo-400/50 vm-glow-indigo'
+                  : 'bg-white/5 text-slate-300 border-white/10 hover:border-indigo-400/40 hover:text-indigo-200'
+              }`}
+            >
+              <Database size={18} /> <span>Manage Cost (Master)</span>
+              {activeSection === 'master' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+            <button
+              onClick={() => setActiveSection(activeSection === 'import' ? 'none' : 'import')}
+              className={`flex items-center justify-center gap-3 py-3 rounded-xl transition-all border font-bold text-sm ${
+                activeSection === 'import'
+                  ? 'bg-emerald-500/20 text-emerald-200 border-emerald-400/50 vm-glow-emerald'
+                  : 'bg-white/5 text-slate-300 border-white/10 hover:border-emerald-400/40 hover:text-emerald-200'
+              }`}
+            >
+              <FileSpreadsheet size={18} /> <span>Import Sales</span>
+              {activeSection === 'import' ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+            </button>
+          </div>
+          {activeSection !== 'none' && (
+            <div className="mt-2 p-1 relative">
+              <button
+                onClick={() => setActiveSection('none')}
+                className="absolute top-3 right-3 z-10 text-slate-400 hover:text-white bg-white/10 p-1 rounded-full"
+              >
+                <X size={18} />
+              </button>
+              <div className="pt-2">
+                {activeSection === 'master' && <ProductCostUploader />}
+                {activeSection === 'import' && <SmartExcelImport onDataImported={onDataImported} />}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ============ KPI CARDS ============ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+        {kpis.map((k, i) => (
+          <div key={k.data.key} className={`vm-glass vm-glass-hover rounded-2xl p-5 relative overflow-hidden vm-rise vm-rise-${i + 1}`}>
+            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${k.accent}`} />
+            <div className="flex items-start justify-between mb-4">
+              <div className={`p-3 rounded-xl bg-gradient-to-br ${k.accent} ${k.glow} text-white`}>
+                <k.icon size={22} />
+              </div>
+              {typeof k.growth === 'number' ? (
+                <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
+                  k.growth >= 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'
+                }`}>
+                  {k.growth >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
+                  {Math.abs(k.growth).toFixed(1)}%
+                </span>
+              ) : (
+                <span className="text-[10px] uppercase tracking-widest text-slate-500">{k.data.count} tx</span>
+              )}
+            </div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{k.data.label} · Profit</p>
+            <h3 className="text-3xl font-black text-white mt-1">{formatRM(k.data.profit)}</h3>
+            <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
+              <span>Rev <span className="text-slate-200 font-semibold">{formatCompactRM(k.data.revenue)}</span></span>
+              <span className={`font-semibold ${k.ring}`}>{k.data.margin.toFixed(1)}% margin</span>
+            </div>
+            {k.sub && <p className="mt-1 text-[11px] text-slate-500">{k.sub}</p>}
+          </div>
+        ))}
+      </div>
+
+      {/* ============ MAIN TREND + PAYMENT ============ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        <div className="lg:col-span-2 vm-glass rounded-2xl p-6 vm-rise">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
+            <h3 className="font-bold text-lg text-white flex items-center gap-2">
+              <TrendingUp className="text-cyan-400" size={20} /> Revenue vs Net Profit
+            </h3>
+            <div className="flex bg-white/5 border border-white/10 p-1 rounded-xl">
+              {([['24h', 'Today'], ['7d', '7 Days'], ['12m', '12 Months']] as const).map(([id, label]) => (
                 <button
-                    key={f.id}
-                    onClick={() => setTimeFilter(f.id as any)}
-                    className={`px-4 py-2 rounded-lg text-sm font-bold transition-all whitespace-nowrap ${
-                        timeFilter === f.id 
-                        ? 'bg-indigo-600 text-white shadow-md' 
-                        : 'text-slate-500 hover:bg-slate-50'
-                    }`}
+                  key={id}
+                  onClick={() => setTrendMode(id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                    trendMode === id ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white' : 'text-slate-400 hover:text-white'
+                  }`}
                 >
-                    {f.label}
+                  {label}
                 </button>
-            ))}
-        </div>
-      </div>
-
-      {/* --- 🌟 MINIMALIST DATA CONTROL PANEL 🌟 --- */}
-      <div className="bg-slate-50 rounded-2xl p-2 border border-slate-200 shadow-sm">
-        <div className="grid grid-cols-2 gap-2">
-            {/* Button 1: Master Data */}
-            <button 
-                onClick={() => setActiveSection(activeSection === 'master' ? 'none' : 'master')}
-                className={`
-                    flex items-center justify-center gap-3 py-3 rounded-xl transition-all border font-bold text-sm
-                    ${activeSection === 'master' 
-                        ? 'bg-blue-600 text-white border-blue-700 shadow-inner' 
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-blue-300 hover:text-blue-600 hover:shadow-sm'}
-                `}
-            >
-                <Database size={18} />
-                <span>Urus Kos (Master)</span>
-                {activeSection === 'master' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-            </button>
-
-            {/* Button 2: Import Sales */}
-            <button 
-                onClick={() => setActiveSection(activeSection === 'import' ? 'none' : 'import')}
-                className={`
-                    flex items-center justify-center gap-3 py-3 rounded-xl transition-all border font-bold text-sm
-                    ${activeSection === 'import' 
-                        ? 'bg-emerald-600 text-white border-emerald-700 shadow-inner' 
-                        : 'bg-white text-slate-600 border-slate-200 hover:border-emerald-300 hover:text-emerald-600 hover:shadow-sm'}
-                `}
-            >
-                <FileSpreadsheet size={18} />
-                <span>Import Jualan</span>
-                {activeSection === 'import' ? <ChevronUp size={16}/> : <ChevronDown size={16}/>}
-            </button>
-        </div>
-
-        {/* EXPANDABLE AREA */}
-        {activeSection !== 'none' && (
-            <div className="mt-2 p-1 animate-in slide-in-from-top-2 fade-in relative">
-                
-                {/* Close Button X (Float) */}
-                <button 
-                    onClick={() => setActiveSection('none')}
-                    className="absolute top-4 right-4 z-10 text-slate-400 hover:text-slate-600 bg-white/50 hover:bg-white p-1 rounded-full shadow-sm"
-                    title="Tutup Panel"
-                >
-                    <X size={20} />
-                </button>
-
-                {activeSection === 'master' && (
-                    <div className="pt-2">
-                         {/* Terus tunjuk component, tak perlu tajuk tambahan sebab component dah ada tajuk */}
-                        <ProductCostUploader />
-                    </div>
-                )}
-
-                {activeSection === 'import' && (
-                    <div className="pt-2">
-                        {/* Terus tunjuk component */}
-                        <SmartExcelImport onDataImported={(d, i) => {
-                            onDataImported(d, i);
-                        }} />
-                    </div>
-                )}
-            </div>
-        )}
-      </div>
-
-      {/* STATS CARDS */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        {/* Total Sales */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg transition-all duration-300 group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-emerald-100 text-emerald-600 rounded-xl group-hover:scale-110 transition-transform">
-              <DollarSign size={24} />
-            </div>
-            <span className="text-xs font-bold bg-emerald-50 text-emerald-600 px-2 py-1 rounded-full">{getFilterLabel()}</span>
-          </div>
-          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Revenue</p>
-          <h3 className="text-3xl font-black text-slate-800 mt-1">{formatRM(stats.totalSales)}</h3>
-        </div>
-
-        {/* Total Profit */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg transition-all duration-300 group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-yellow-100 text-yellow-600 rounded-xl group-hover:scale-110 transition-transform">
-              <Star size={24} />
-            </div>
-            <span className="text-xs font-bold bg-yellow-50 text-yellow-600 px-2 py-1 rounded-full">{getFilterLabel()}</span>
-          </div>
-          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Untung Bersih</p>
-          <h3 className="text-3xl font-black text-yellow-600 mt-1">{formatRM(stats.totalProfit)}</h3>
-        </div>
-
-        {/* Total Transactions */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg transition-all duration-300 group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-blue-100 text-blue-600 rounded-xl group-hover:scale-110 transition-transform">
-              <ShoppingBag size={24} />
+              ))}
             </div>
           </div>
-          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Transaksi</p>
-          <h3 className="text-3xl font-black text-slate-800 mt-1">{stats.totalTransactions}</h3>
-        </div>
-
-        {/* Avg Value */}
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 hover:shadow-lg transition-all duration-300 group">
-          <div className="flex justify-between items-start mb-4">
-            <div className="p-3 bg-purple-100 text-purple-600 rounded-xl group-hover:scale-110 transition-transform">
-              <CreditCard size={24} />
-            </div>
-          </div>
-          <p className="text-slate-500 text-sm font-bold uppercase tracking-wider">Purata Bakul</p>
-          <h3 className="text-3xl font-black text-slate-800 mt-1">{formatRM(stats.avgTransactionValue)}</h3>
-        </div>
-      </div>
-
-      {/* CHART SECTION */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-            <TrendingUp className="text-indigo-500" size={20}/> Trend Jualan (7 Hari)
-          </h3>
-          <div className="h-[300px]">
+          <div className="h-[320px]">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={salesTrend}>
+              <AreaChart data={trendData} margin={{ top: 6, right: 6, left: -18, bottom: 0 }}>
                 <defs>
-                  <linearGradient id="colorSales" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#6366f1" stopOpacity={0.3}/>
-                    <stop offset="95%" stopColor="#6366f1" stopOpacity={0}/>
+                  <linearGradient id="gRev" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#6366f1" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#6366f1" stopOpacity={0} />
+                  </linearGradient>
+                  <linearGradient id="gPro" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22d3ee" stopOpacity={0.5} />
+                    <stop offset="100%" stopColor="#22d3ee" stopOpacity={0} />
                   </linearGradient>
                 </defs>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} dy={10} />
-                <YAxis axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 12}} tickFormatter={(val) => `RM${val}`} />
-                <Tooltip 
-                  contentStyle={{borderRadius: '12px', border: 'none', boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)'}}
-                  cursor={{stroke: '#6366f1', strokeWidth: 2}}
-                />
-                <Area type="monotone" dataKey="amount" stroke="#6366f1" strokeWidth={3} fillOpacity={1} fill="url(#colorSales)" />
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.12)" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} interval="preserveStartEnd" />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} tickFormatter={(v) => `${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
+                <Tooltip formatter={(v: number) => formatRM(v)} />
+                <Area type="monotone" dataKey="Revenue" stroke="#818cf8" strokeWidth={2.5} fill="url(#gRev)" />
+                <Area type="monotone" dataKey="Profit" stroke="#22d3ee" strokeWidth={2.5} fill="url(#gPro)" />
               </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-            <Wallet className="text-pink-500" size={20}/> Kaedah Bayaran
+        <div className="vm-glass rounded-2xl p-6 vm-rise">
+          <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2">
+            <Wallet className="text-fuchsia-400" size={20} /> Payment Mix
           </h3>
-          <div className="h-[300px] relative">
+          <div className="h-[240px] relative">
             <ResponsiveContainer width="100%" height="100%">
               <RePie>
-                <Pie
-                  data={paymentMethods}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={80}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {paymentMethods.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={PAYMENT_COLORS[entry.name] || '#94a3b8'} strokeWidth={0} />
-                  ))}
+                <Pie data={paymentData} cx="50%" cy="50%" innerRadius={62} outerRadius={90} paddingAngle={4} dataKey="value" stroke="none">
+                  {paymentData.map((e, i) => <Cell key={i} fill={e.color} />)}
                 </Pie>
-                <Tooltip />
-                <Legend verticalAlign="bottom" height={36} iconType="circle" />
+                <Tooltip formatter={(v: number, _n, p: any) => [`${v} tx · ${formatRM(p.payload.revenue)}`, p.payload.name]} />
               </RePie>
             </ResponsiveContainer>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-              <span className="text-2xl font-black text-slate-800">{stats.totalTransactions}</span>
-              <p className="text-[10px] text-slate-400 uppercase font-bold">Trans</p>
+              <span className="text-3xl font-black text-white">{m.all.count}</span>
+              <p className="text-[10px] text-slate-400 uppercase tracking-widest">Total Tx</p>
             </div>
+          </div>
+          <div className="mt-3 space-y-1.5">
+            {paymentData.slice(0, 4).map((p, i) => (
+              <div key={i} className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-2 text-slate-300">
+                  <span className="w-2.5 h-2.5 rounded-full" style={{ background: p.color }} /> {p.name}
+                </span>
+                <span className="text-slate-400 font-mono">{formatCompactRM(p.revenue)}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* SECONDARY STATS */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-            <Clock className="text-blue-500" size={20}/> Trafik Jam ({getFilterLabel()})
+      {/* ============ HOURLY + TOP PRODUCTS + MARGIN ============ */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+        {/* Hourly profit today */}
+        <div className="vm-glass rounded-2xl p-6 vm-rise">
+          <h3 className="font-bold text-lg text-white mb-1 flex items-center gap-2">
+            <Zap className="text-amber-400" size={20} /> Hourly Profit
           </h3>
-          <div className="h-[250px]">
+          <p className="text-xs text-slate-400 mb-4">Today · earnings up to {clock.getHours()}:00</p>
+          <div className="h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={hourlyTraffic}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                <XAxis dataKey="hour" axisLine={false} tickLine={false} tick={{fill: '#94a3b8', fontSize: 10}} interval={3} />
-                <YAxis axisLine={false} tickLine={false} hide />
-                <Tooltip cursor={{fill: '#f1f5f9'}} contentStyle={{borderRadius: '8px'}} />
-                <Bar dataKey="count" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+              <BarChart data={m.hourlyToday.map(p => ({ name: p.label, Profit: p.profit }))}>
+                <defs>
+                  <linearGradient id="gBar" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="0%" stopColor="#22d3ee" />
+                    <stop offset="100%" stopColor="#6366f1" />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.1)" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 9 }} interval={3} />
+                <YAxis hide />
+                <Tooltip formatter={(v: number) => formatRM(v)} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
+                <Bar dataKey="Profit" fill="url(#gBar)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
           </div>
         </div>
 
-        <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-          <h3 className="font-bold text-lg text-slate-800 mb-6 flex items-center gap-2">
-            <Award className="text-yellow-500" size={20}/> Produk Laris ({getFilterLabel()})
+        {/* Top products by profit */}
+        <div className="vm-glass rounded-2xl p-6 vm-rise">
+          <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2">
+            <Award className="text-emerald-400" size={20} /> Top Profit Drivers
           </h3>
-          <div className="space-y-4">
-            {topProducts.length > 0 ? topProducts.map((prod, idx) => (
-              <div key={idx} className="flex items-center justify-between p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
-                <div className="flex items-center gap-3">
-                  <div className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-white text-xs ${idx === 0 ? 'bg-yellow-400' : 'bg-slate-300'}`}>
-                    {idx + 1}
-                  </div>
-                  <span className="font-medium text-slate-700 text-sm truncate max-w-[180px]">{prod.name}</span>
+          <div className="space-y-3">
+            {m.topProducts.length ? m.topProducts.map((p, idx) => (
+              <div key={idx}>
+                <div className="flex items-center justify-between text-sm mb-1">
+                  <span className="flex items-center gap-2 text-slate-200 truncate max-w-[160px]">
+                    <span className={`w-6 h-6 rounded-lg flex items-center justify-center text-[11px] font-bold ${
+                      idx === 0 ? 'bg-amber-400 text-slate-900' : 'bg-white/10 text-slate-300'
+                    }`}>{idx + 1}</span>
+                    <span className="truncate">{p.name}</span>
+                  </span>
+                  <span className="text-emerald-300 font-bold">{formatRM(p.profit)}</span>
                 </div>
-                <div className="flex items-center gap-1 text-slate-600 font-bold text-sm">
-                  {prod.count} <span className="text-[10px] font-normal text-slate-400">Unit</span>
+                <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
+                  <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400"
+                    style={{ width: `${(p.profit / maxProductProfit) * 100}%` }} />
                 </div>
               </div>
-            )) : (
-              <p className="text-center text-slate-400 text-sm py-10">Tiada jualan pada tempoh ini.</p>
-            )}
+            )) : <p className="text-center text-slate-500 text-sm py-10">No sales in this period.</p>}
           </div>
         </div>
-      </div>
 
-      {/* FOOTER */}
-      <div className="bg-gradient-to-r from-slate-900 to-indigo-900 rounded-2xl p-6 text-white relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-10">
-          <Cpu size={120} />
-        </div>
-        
-        <div className="relative z-10">
-          <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-            <Zap className="text-yellow-400" size={20}/> AI Business Insights
+        {/* Margin gauge */}
+        <div className="vm-glass rounded-2xl p-6 vm-rise relative overflow-hidden">
+          <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2">
+            <Gauge className="text-cyan-400" size={20} /> Net Margin · Month
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/10 transition-all backdrop-blur-sm">
-              <p className="text-xs text-emerald-300 uppercase font-bold tracking-wider mb-1 flex items-center gap-2">
-                <Clock size={12} /> Waktu Paling Sibuk
-              </p>
-              <p className="text-sm leading-relaxed text-slate-200">
-                Trafik memuncak jam <span className="font-bold text-white bg-emerald-500/30 px-1.5 py-0.5 rounded border border-emerald-500/50">{insights.peak}</span>.
-              </p>
+          <div className="h-[180px] relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <RadialBarChart innerRadius="70%" outerRadius="100%" data={marginGauge} startAngle={220} endAngle={-40}>
+                <defs>
+                  <linearGradient id="gGauge" x1="0" y1="0" x2="1" y2="0">
+                    <stop offset="0%" stopColor="#22d3ee" />
+                    <stop offset="100%" stopColor="#a855f7" />
+                  </linearGradient>
+                </defs>
+                <RadialBar background={{ fill: 'rgba(148,163,184,0.1)' }} dataKey="value" cornerRadius={12} fill="url(#gGauge)" />
+              </RadialBarChart>
+            </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-4xl font-black vm-text-gradient">{m.month.margin.toFixed(1)}%</span>
+              <span className="text-[10px] uppercase tracking-widest text-slate-400">Gross Margin</span>
             </div>
-            <div className="bg-white/5 p-4 rounded-xl border border-white/10 hover:bg-white/10 transition-all backdrop-blur-sm">
-              <p className="text-xs text-amber-300 uppercase font-bold tracking-wider mb-1 flex items-center gap-2">
-                <TrendingUp size={12} /> Ramalan Esok
-              </p>
-              <p className="text-sm leading-relaxed text-slate-200">
-                Jangkaan jualan esok: <span className="font-bold text-white bg-amber-500/30 px-1.5 py-0.5 rounded border border-amber-500/50">{insights.forecast}</span>.
-              </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-2 text-center">
+            <div className="bg-white/5 rounded-xl py-2">
+              <p className="text-[10px] uppercase text-slate-400">Revenue</p>
+              <p className="text-sm font-bold text-white">{formatCompactRM(m.month.revenue)}</p>
+            </div>
+            <div className="bg-white/5 rounded-xl py-2">
+              <p className="text-[10px] uppercase text-slate-400">COGS</p>
+              <p className="text-sm font-bold text-rose-300">{formatCompactRM(m.month.cost)}</p>
             </div>
           </div>
         </div>
-        
-        <div className="mt-8 pt-4 border-t border-white/10 flex justify-between items-center text-xs text-slate-400 font-medium">
-          <span>Powered by Gemini Logic v2.0</span>
-          <span className="flex items-center gap-1.5 bg-green-500/10 px-2 py-1 rounded-full text-green-400 border border-green-500/20">
-            <div className="w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse"/> System Online
-          </span>
-        </div>
       </div>
 
+      {/* ============ INSIGHT FOOTER ============ */}
+      <div className="vm-glass vm-neon rounded-2xl p-6 relative overflow-hidden vm-rise">
+        <div className="absolute top-0 right-0 opacity-10"><Sparkles size={140} className="text-cyan-400" /></div>
+        <div className="relative z-10">
+          <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-white">
+            <Sparkles className="text-cyan-400" size={20} /> AI Business Insights
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <InsightCard icon={Clock} tint="cyan" label="Peak Hour Today"
+              value={peakHour && peakHour.revenue > 0 ? peakHour.label : '—'}
+              note={peakHour && peakHour.revenue > 0 ? `${formatRM(peakHour.revenue)} in revenue` : 'Awaiting sales'} />
+            <InsightCard icon={Target} tint="emerald" label="Best Profit Driver"
+              value={m.topProducts[0]?.name?.slice(0, 22) || '—'}
+              note={m.topProducts[0] ? `${formatRM(m.topProducts[0].profit)} profit` : 'No data yet'} />
+            <InsightCard icon={ArrowUpRight} tint="violet" label="Day-over-Day"
+              value={`${m.todayVsYesterdayPct >= 0 ? '+' : ''}${m.todayVsYesterdayPct.toFixed(1)}%`}
+              note="Today vs yesterday (same time)" />
+          </div>
+          <div className="mt-6 pt-4 border-t border-white/10 flex justify-between items-center text-xs text-slate-400">
+            <span>VMMS Profit Engine · v3.0</span>
+            <span className="flex items-center gap-1.5 bg-emerald-500/10 px-2 py-1 rounded-full text-emerald-300 border border-emerald-500/20">
+              <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full vm-pulse text-emerald-400" /> Live
+            </span>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
+
+const TINTS: Record<string, string> = {
+  cyan: 'text-cyan-300 bg-cyan-500/10 border-cyan-500/20',
+  emerald: 'text-emerald-300 bg-emerald-500/10 border-emerald-500/20',
+  violet: 'text-violet-300 bg-violet-500/10 border-violet-500/20',
+};
+
+const InsightCard = ({ icon: Icon, tint, label, value, note }: { icon: any; tint: string; label: string; value: string; note: string }) => (
+  <div className="bg-white/5 border border-white/10 rounded-xl p-4 hover:bg-white/10 transition-all">
+    <p className={`text-xs uppercase font-bold tracking-wider mb-2 flex items-center gap-2 ${TINTS[tint].split(' ')[0]}`}>
+      <Icon size={13} /> {label}
+    </p>
+    <p className="text-lg font-black text-white truncate">{value}</p>
+    <p className="text-xs text-slate-400 mt-0.5">{note}</p>
+  </div>
+);
 
 export default Dashboard;
