@@ -498,9 +498,27 @@ export const updateSlotConfig = (slotId: string, updates: { name?: string, price
 
 export const getTransactions = async (): Promise<Transaction[]> => {
   try {
-    const { data, error } = await supabase.from('transactions').select('*').order('timestamp', { ascending: false }).limit(20000);
-    if (error) throw error;
-    return data || [];
+    let allData: Transaction[] = [];
+    let from = 0;
+    const limit = 1000;
+    
+    while (true) {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .order('timestamp', { ascending: false })
+        .range(from, from + limit - 1);
+        
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      
+      allData = [...allData, ...data];
+      if (data.length < limit) break;
+      
+      from += limit;
+    }
+    
+    return allData;
   } catch (err) {
     console.error('Error fetching transactions:', err);
     return [];
