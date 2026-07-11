@@ -145,7 +145,9 @@ export default function Financials({ transactions, lang }: FinancialsProps) {
                    <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} />
                    <Tooltip 
                      cursor={{fill: 'rgba(148,163,184,0.08)'}} 
-                     contentStyle={{background: 'rgba(11, 20, 36, 0.92)', border: '1px solid rgba(99, 130, 255, 0.25)', borderRadius: '12px'}} 
+                     contentStyle={{background: 'rgba(11, 20, 36, 0.92)', border: '1px solid rgba(99, 130, 255, 0.25)', borderRadius: '12px', color: '#fff'}} 
+                     itemStyle={{ color: '#e2e8f0' }}
+                     labelStyle={{ color: '#94a3b8' }}
                    />
                    <Legend />
                    <Bar dataKey="Revenue" fill="#6366f1" radius={[4, 4, 0, 0]} />

@@ -115,7 +115,9 @@ const SalesAnalytics: React.FC<Props> = ({ transactions }) => {
                 />
                 <Tooltip 
                     cursor={{fill: 'rgba(148,163,184,0.08)'}}
-                    contentStyle={{background: 'rgba(11, 20, 36, 0.92)', border: '1px solid rgba(99, 130, 255, 0.25)', borderRadius: '12px'}}
+                    contentStyle={{background: 'rgba(11, 20, 36, 0.92)', border: '1px solid rgba(99, 130, 255, 0.25)', borderRadius: '12px', color: '#fff'}}
+                    itemStyle={{ color: '#e2e8f0' }}
+                    labelStyle={{ color: '#94a3b8' }}
                     formatter={(val: number) => [formatRM(val), 'Jualan']}
                 />
                 <Bar dataKey="total" radius={[0, 6, 6, 0]} barSize={30} animationDuration={1500}>
@@ -151,7 +153,9 @@ const SalesAnalytics: React.FC<Props> = ({ transactions }) => {
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} />
                 <YAxis axisLine={false} tickLine={false} tick={{fontSize: 12, fill: '#94a3b8'}} tickFormatter={(v)=>`RM${v}`} />
                 <Tooltip 
-                    contentStyle={{background: 'rgba(11, 20, 36, 0.92)', border: '1px solid rgba(99, 130, 255, 0.25)', borderRadius: '12px'}}
+                    contentStyle={{background: 'rgba(11, 20, 36, 0.92)', border: '1px solid rgba(99, 130, 255, 0.25)', borderRadius: '12px', color: '#fff'}}
+                    itemStyle={{ color: '#e2e8f0' }}
+                    labelStyle={{ color: '#94a3b8' }}
                     formatter={(val: number) => [formatRM(val), 'Total']}
                 />
                 <Area 

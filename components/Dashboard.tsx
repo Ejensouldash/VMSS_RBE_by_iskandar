@@ -243,7 +243,12 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.12)" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} interval="preserveStartEnd" />
                 <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} tickFormatter={(v) => `${v >= 1000 ? (v / 1000).toFixed(0) + 'k' : v}`} />
-                <Tooltip formatter={(v: number) => formatRM(v)} />
+                <Tooltip 
+                  formatter={(v: number) => formatRM(v)}
+                  contentStyle={{ background: 'rgba(11, 20, 36, 0.92)', border: '1px solid rgba(99, 130, 255, 0.25)', borderRadius: '12px', color: '#fff' }}
+                  itemStyle={{ color: '#e2e8f0' }}
+                  labelStyle={{ color: '#94a3b8' }}
+                />
                 <Area type="monotone" dataKey="Revenue" stroke="#818cf8" strokeWidth={2.5} fill="url(#gRev)" />
                 <Area type="monotone" dataKey="Profit" stroke="#22d3ee" strokeWidth={2.5} fill="url(#gPro)" />
               </AreaChart>
@@ -261,7 +266,12 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
                 <Pie data={paymentData} cx="50%" cy="50%" innerRadius={62} outerRadius={90} paddingAngle={4} dataKey="value" stroke="none">
                   {paymentData.map((e, i) => <Cell key={i} fill={e.color} />)}
                 </Pie>
-                <Tooltip formatter={(v: number, _n, p: any) => [`${v} tx · ${formatRM(p.payload.revenue)}`, p.payload.name]} />
+                <Tooltip 
+                  formatter={(v: number, _n, p: any) => [`${v} tx · ${formatRM(p.payload.revenue)}`, p.payload.name]} 
+                  contentStyle={{ background: 'rgba(11, 20, 36, 0.92)', border: '1px solid rgba(99, 130, 255, 0.25)', borderRadius: '12px', color: '#fff' }}
+                  itemStyle={{ color: '#e2e8f0' }}
+                  labelStyle={{ color: '#94a3b8' }}
+                />
               </RePie>
             </ResponsiveContainer>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
@@ -301,8 +311,14 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(148,163,184,0.1)" />
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 9 }} interval={3} />
-                <YAxis hide />
-                <Tooltip formatter={(v: number) => formatRM(v)} cursor={{ fill: 'rgba(148,163,184,0.08)' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} tickFormatter={(v) => `RM${v}`} />
+                <Tooltip 
+                  formatter={(v: number) => formatRM(v)} 
+                  cursor={{ fill: 'rgba(148,163,184,0.08)' }} 
+                  contentStyle={{ background: 'rgba(11, 20, 36, 0.92)', border: '1px solid rgba(99, 130, 255, 0.25)', borderRadius: '12px', color: '#fff' }}
+                  itemStyle={{ color: '#e2e8f0' }}
+                  labelStyle={{ color: '#94a3b8' }}
+                />
                 <Bar dataKey="Profit" fill="url(#gBar)" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
