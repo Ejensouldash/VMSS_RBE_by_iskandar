@@ -116,7 +116,7 @@ const App: React.FC = () => {
         onClick={() => { setActiveTab(id); setIsSidebarOpen(false); }}
         className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-all duration-200 group ${
           activeTab === id 
-            ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white shadow-lg shadow-cyan-500/20' 
+            ? 'vm-sidebar-active text-white' 
             : 'text-slate-400 hover:bg-white/5 hover:text-white'
         }`}
       >
@@ -145,17 +145,18 @@ const App: React.FC = () => {
 
       {/* --- SIDEBAR --- */}
       <aside className={`
-        fixed lg:static inset-y-0 left-0 z-50 w-72 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out flex flex-col shadow-2xl
+        fixed lg:static inset-y-0 left-0 z-50 w-72 vm-sidebar text-white transform transition-transform duration-300 ease-in-out flex flex-col shadow-2xl
         ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Header Logo */}
-        <div className="p-6 border-b border-slate-800 flex items-center justify-between">
+        <div className="p-6 border-b border-white/5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-gradient-to-tr from-blue-500 to-indigo-600 rounded-xl flex items-center justify-center shadow-lg shadow-blue-500/20">
-              <StoreIcon /> 
+            <div className="w-10 h-10 bg-gradient-to-tr from-indigo-500 to-cyan-500 rounded-xl flex items-center justify-center vm-glow-indigo relative">
+              <StoreIcon />
+              <span className="absolute -bottom-1 -right-1 w-2.5 h-2.5 rounded-full bg-emerald-400 vm-pulse border-2 border-[#070c18]" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">VMMS<span className="text-blue-500">.Pro</span></h1>
+              <h1 className="text-xl font-bold tracking-tight font-display">VMMS<span className="text-cyan-400">.Pro</span></h1>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest">
                 {userRole === 'super_admin' ? 'Enterprise Edition' : 'Manager View'}
               </p>
@@ -178,7 +179,11 @@ const App: React.FC = () => {
           >
             <button
               onClick={() => setIsAnalyticsClicked(prev => !prev)}
-              className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white transition-all duration-200"
+              className={`w-full flex items-center justify-between px-4 py-3 rounded-lg transition-all duration-200 ${
+                ['sales_analytics', 'history', 'financials', 'compliance'].includes(activeTab)
+                  ? 'vm-sidebar-active text-white'
+                  : 'text-slate-400 hover:bg-white/5 hover:text-white'
+              }`}
             >
               <div className="flex items-center space-x-3">
                 <BarChart3 size={20} className={['sales_analytics', 'history', 'financials', 'compliance'].includes(activeTab) ? 'text-white' : 'text-slate-400 group-hover/analytics:text-cyan-300'} />
@@ -207,10 +212,10 @@ const App: React.FC = () => {
         </div>
 
         {/* --- PROFILE SECTION --- */}
-        <div className="p-4 border-t border-slate-800 bg-slate-950/50">
+        <div className="p-4 border-t border-white/5 bg-black/20">
           <div className="flex items-center gap-3 mb-4">
             <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-sm shadow-md ${
-                userRole === 'super_admin' ? 'bg-gradient-to-br from-emerald-400 to-teal-600' : 'bg-gradient-to-br from-blue-400 to-indigo-600'
+                userRole === 'super_admin' ? 'bg-gradient-to-br from-emerald-400 to-teal-600 vm-glow-emerald' : 'bg-gradient-to-br from-indigo-400 to-cyan-600 vm-glow-indigo'
             }`}>
               {currentUser.name.substring(0, 2).toUpperCase()}
             </div>
@@ -222,26 +227,26 @@ const App: React.FC = () => {
                 {currentUser.email}
               </p>
             </div>
-            <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+            <div className="h-2 w-2 rounded-full bg-emerald-400 vm-pulse"></div>
           </div>
           
           <div className="grid grid-cols-2 gap-2">
             {userRole === 'super_admin' ? (
                 <button 
                   onClick={handleReset} 
-                  className="flex items-center justify-center gap-2 px-3 py-2 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg text-xs font-medium transition-colors"
+                  className="flex items-center justify-center gap-2 px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 border border-rose-500/20 rounded-lg text-xs font-medium transition-colors"
                 >
                   <Trash2 size={14} /> Reset
                 </button>
             ) : (
-                <div className="flex items-center justify-center text-xs text-slate-500 bg-slate-900 rounded-lg border border-slate-800">
+                <div className="flex items-center justify-center text-xs text-slate-500 bg-white/5 rounded-lg border border-white/10">
                     Read Only
                 </div>
             )}
             
             <button 
               onClick={handleLogout} 
-              className="flex items-center justify-center gap-2 px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition-colors"
+              className="flex items-center justify-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 rounded-lg text-xs font-medium transition-colors"
             >
               <LogOut size={14} /> Logout
             </button>

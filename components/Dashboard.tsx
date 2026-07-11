@@ -1,9 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { Transaction } from '../types';
 import {
-  DollarSign, ShoppingBag, Activity, TrendingUp, TrendingDown, Clock,
+  DollarSign, Activity, TrendingUp, TrendingDown, Clock,
   Zap, Award, Wallet, Database, FileSpreadsheet, ChevronDown, ChevronUp,
-  X, Sparkles, Gauge, Layers, ArrowUpRight, Target
+  X, Sparkles, Gauge, Layers, ArrowUpRight, Target, Rocket, Orbit, SignalHigh
 } from 'lucide-react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -12,6 +12,8 @@ import {
 
 import ProductCostUploader from '../components/ProductCostUploader';
 import SmartExcelImport from '../components/SmartExcelImport';
+import TiltCard from './effects/TiltCard';
+import LiveTicker from './effects/LiveTicker';
 import { computeDashboardMetrics, formatRM, formatCompactRM } from '../services/profit';
 
 interface DashboardProps {
@@ -56,46 +58,84 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
   const maxProductProfit = Math.max(1, ...m.topProducts.map(p => p.profit));
   const peakHour = m.hourlyToday.reduce((best, cur) => (cur.revenue > best.revenue ? cur : best), m.hourlyToday[0]);
   const marginGauge = [{ name: 'Margin', value: Math.max(0, Math.min(100, m.month.margin)), fill: '#22d3ee' }];
+  const reactorGauge = [{ name: 'Day', value: m.dayProgressPct, fill: '#22d3ee' }];
 
   const kpis = [
-    { data: m.thisHour, icon: Clock, accent: 'from-cyan-400 to-sky-500', glow: 'vm-glow-cyan', ring: 'text-cyan-300', sub: `Peak today ${peakHour?.label ?? '--'}` },
-    { data: m.today, icon: DollarSign, accent: 'from-indigo-400 to-violet-500', glow: 'vm-glow-indigo', ring: 'text-indigo-300', growth: m.todayVsYesterdayPct },
-    { data: m.week, icon: Layers, accent: 'from-fuchsia-400 to-purple-500', glow: '', ring: 'text-fuchsia-300' },
+    { data: m.thisHour, icon: Clock, accent: 'from-cyan-400 to-sky-500', glow: 'vm-glow-cyan', ring: 'text-cyan-300' },
+    { data: m.week, icon: Layers, accent: 'from-fuchsia-400 to-purple-500', glow: 'vm-glow-violet', ring: 'text-fuchsia-300' },
     { data: m.month, icon: Award, accent: 'from-emerald-400 to-teal-500', glow: 'vm-glow-emerald', ring: 'text-emerald-300' },
   ];
 
   return (
-    <div className="vm-app-bg vm-grid -m-6 p-6 min-h-full text-slate-100 space-y-8">
+    <div className="vm-app-bg vm-grid vm-scanlines -m-6 p-6 min-h-full text-slate-100 space-y-6 font-display">
 
-      {/* ============ HERO HEADER ============ */}
-      <div className="relative vm-glass vm-neon rounded-3xl p-6 md:p-8 overflow-hidden vm-rise">
-        <div className="absolute -top-16 -right-10 opacity-20 vm-float">
-          <Activity size={220} className="text-indigo-400" />
+      {/* ============ TOP STRIP: title + live ticker ============ */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 vm-rise">
+        <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.3em] text-cyan-300/80 uppercase">
+          <Orbit size={14} className="text-cyan-400" />
+          VMMS · Mission Control
+          <span className="text-slate-600">/</span>
+          <span className="text-slate-500 font-mono-num">{clock.toLocaleTimeString('en-MY')}</span>
         </div>
-        <div className="relative z-10 flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-semibold tracking-[0.25em] text-cyan-300/80 uppercase mb-2">
-              <span className="text-cyan-400 vm-pulse inline-block w-1.5 h-1.5 rounded-full bg-cyan-400" />
-              VMMS · Command Center
+        <div className="w-full md:w-[420px]">
+          <LiveTicker transactions={transactions} />
+        </div>
+      </div>
+
+      {/* ============ HERO: REACTOR CORE ============ */}
+      <div className="relative vm-glass rounded-3xl p-6 md:p-10 overflow-hidden vm-rise">
+        <div className="absolute inset-0 opacity-40" style={{
+          background: 'radial-gradient(600px circle at 15% 20%, rgba(99,102,241,.18), transparent 60%)'
+        }} />
+        <div className="relative z-10 flex flex-col lg:flex-row items-center gap-10">
+
+          {/* Reactor visual */}
+          <div className="shrink-0 flex flex-col items-center gap-4">
+            <div className="vm-reactor">
+              <div className="vm-reactor-ring" />
+              <div className="vm-reactor-ring r2" />
+              <div className="vm-reactor-ring r3" />
+              <div className="vm-reactor-core" />
+              {/* progress ring overlay */}
+              <ResponsiveContainer width="100%" height="100%">
+                <RadialBarChart innerRadius="92%" outerRadius="100%" data={reactorGauge} startAngle={90} endAngle={-270}>
+                  <RadialBar background={{ fill: 'rgba(148,163,184,0.08)' }} dataKey="value" cornerRadius={20} fill="#22d3ee" />
+                </RadialBarChart>
+              </ResponsiveContainer>
+              <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none px-6">
+                <span className="text-[10px] uppercase tracking-widest text-cyan-300/80 font-bold">Today's Net Profit</span>
+                <span key={m.today.profit} className="vm-tick text-3xl font-black text-white vm-glow-text-cyan font-mono-num text-center leading-tight mt-1">
+                  {formatRM(m.today.profit)}
+                </span>
+                <span className="text-[11px] text-slate-400 mt-1">{m.dayProgressPct.toFixed(0)}% of day elapsed</span>
+              </div>
             </div>
-            <h1 className="text-3xl md:text-4xl font-black tracking-tight vm-text-gradient">
-              Profit Intelligence Dashboard
-            </h1>
-            <p className="text-slate-400 mt-2 text-sm flex items-center gap-2 font-mono">
-              <Clock size={14} className="text-cyan-400" />
-              {clock.toLocaleDateString('en-MY', { weekday: 'long', day: '2-digit', month: 'short', year: 'numeric' })}
-              <span className="text-cyan-300">{clock.toLocaleTimeString('en-MY')}</span>
-            </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="vm-glass rounded-2xl px-5 py-3 text-right">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400">Net Profit · Month</p>
-              <p className="text-2xl font-black text-emerald-400">{formatRM(m.month.profit)}</p>
+          {/* Stats beside reactor */}
+          <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 w-full">
+            <div className="vm-glass rounded-2xl p-4">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><Rocket size={12} className="text-indigo-300" /> Projected End-of-Day</p>
+              <p className="text-2xl font-black text-white mt-1 font-mono-num">{formatRM(m.projectedEodProfit)}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Revenue pace: {formatCompactRM(m.projectedEodRevenue)}</p>
             </div>
-            <div className="vm-glass rounded-2xl px-5 py-3 text-right">
-              <p className="text-[10px] uppercase tracking-widest text-slate-400">All-Time Revenue</p>
-              <p className="text-2xl font-black text-white">{formatCompactRM(m.all.revenue)}</p>
+            <div className="vm-glass rounded-2xl p-4">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400 flex items-center gap-1.5"><SignalHigh size={12} className="text-emerald-300" /> Day-over-Day</p>
+              <p className={`text-2xl font-black mt-1 font-mono-num flex items-center gap-1.5 ${m.todayVsYesterdayPct >= 0 ? 'text-emerald-300' : 'text-rose-300'}`}>
+                {m.todayVsYesterdayPct >= 0 ? <TrendingUp size={20} /> : <TrendingDown size={20} />}
+                {m.todayVsYesterdayPct >= 0 ? '+' : ''}{m.todayVsYesterdayPct.toFixed(1)}%
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">vs. yesterday, same time</p>
+            </div>
+            <div className="vm-glass rounded-2xl p-4">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Today's Revenue</p>
+              <p className="text-2xl font-black text-white mt-1 font-mono-num">{formatRM(m.today.revenue)}</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">{m.today.count} transactions</p>
+            </div>
+            <div className="vm-glass rounded-2xl p-4">
+              <p className="text-[10px] uppercase tracking-widest text-slate-400">Net Margin Today</p>
+              <p className="text-2xl font-black text-cyan-300 mt-1 font-mono-num">{m.today.margin.toFixed(1)}%</p>
+              <p className="text-[11px] text-slate-500 mt-0.5">Peak hour: {peakHour?.revenue > 0 ? peakHour.label : '—'}</p>
             </div>
           </div>
         </div>
@@ -145,40 +185,30 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
         </div>
       )}
 
-      {/* ============ KPI CARDS ============ */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-5">
+      {/* ============ KPI TILT CARDS ============ */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-5">
         {kpis.map((k, i) => (
-          <div key={k.data.key} className={`vm-glass vm-glass-hover rounded-2xl p-5 relative overflow-hidden vm-rise vm-rise-${i + 1}`}>
+          <TiltCard key={k.data.key} className={`vm-glass rounded-2xl p-5 relative overflow-hidden vm-rise vm-rise-${i + 1}`}>
             <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${k.accent}`} />
             <div className="flex items-start justify-between mb-4">
               <div className={`p-3 rounded-xl bg-gradient-to-br ${k.accent} ${k.glow} text-white`}>
                 <k.icon size={22} />
               </div>
-              {typeof k.growth === 'number' ? (
-                <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
-                  k.growth >= 0 ? 'bg-emerald-500/15 text-emerald-300' : 'bg-rose-500/15 text-rose-300'
-                }`}>
-                  {k.growth >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
-                  {Math.abs(k.growth).toFixed(1)}%
-                </span>
-              ) : (
-                <span className="text-[10px] uppercase tracking-widest text-slate-500">{k.data.count} tx</span>
-              )}
+              <span className="text-[10px] uppercase tracking-widest text-slate-500">{k.data.count} tx</span>
             </div>
             <p className="text-xs font-semibold uppercase tracking-wider text-slate-400">{k.data.label} · Profit</p>
-            <h3 className="text-3xl font-black text-white mt-1">{formatRM(k.data.profit)}</h3>
+            <h3 className="text-3xl font-black text-white mt-1 font-mono-num">{formatRM(k.data.profit)}</h3>
             <div className="mt-3 flex items-center justify-between text-xs text-slate-400">
               <span>Rev <span className="text-slate-200 font-semibold">{formatCompactRM(k.data.revenue)}</span></span>
               <span className={`font-semibold ${k.ring}`}>{k.data.margin.toFixed(1)}% margin</span>
             </div>
-            {k.sub && <p className="mt-1 text-[11px] text-slate-500">{k.sub}</p>}
-          </div>
+          </TiltCard>
         ))}
       </div>
 
       {/* ============ MAIN TREND + PAYMENT ============ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-        <div className="lg:col-span-2 vm-glass rounded-2xl p-6 vm-rise">
+        <div className="lg:col-span-2 vm-glass rounded-2xl p-6 vm-rise vm-chart-glow">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <h3 className="font-bold text-lg text-white flex items-center gap-2">
               <TrendingUp className="text-cyan-400" size={20} /> Revenue vs Net Profit
@@ -189,7 +219,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
                   key={id}
                   onClick={() => setTrendMode(id)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
-                    trendMode === id ? 'bg-gradient-to-r from-indigo-500 to-cyan-500 text-white' : 'text-slate-400 hover:text-white'
+                    trendMode === id ? 'vm-btn-primary text-white' : 'text-slate-400 hover:text-white'
                   }`}
                 >
                   {label}
@@ -221,7 +251,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
           </div>
         </div>
 
-        <div className="vm-glass rounded-2xl p-6 vm-rise">
+        <TiltCard maxTilt={3} className="vm-glass rounded-2xl p-6 vm-rise">
           <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2">
             <Wallet className="text-fuchsia-400" size={20} /> Payment Mix
           </h3>
@@ -235,7 +265,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
               </RePie>
             </ResponsiveContainer>
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-center pointer-events-none">
-              <span className="text-3xl font-black text-white">{m.all.count}</span>
+              <span className="text-3xl font-black text-white font-mono-num">{m.all.count}</span>
               <p className="text-[10px] text-slate-400 uppercase tracking-widest">Total Tx</p>
             </div>
           </div>
@@ -245,17 +275,17 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
                 <span className="flex items-center gap-2 text-slate-300">
                   <span className="w-2.5 h-2.5 rounded-full" style={{ background: p.color }} /> {p.name}
                 </span>
-                <span className="text-slate-400 font-mono">{formatCompactRM(p.revenue)}</span>
+                <span className="text-slate-400 font-mono-num">{formatCompactRM(p.revenue)}</span>
               </div>
             ))}
           </div>
-        </div>
+        </TiltCard>
       </div>
 
       {/* ============ HOURLY + TOP PRODUCTS + MARGIN ============ */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         {/* Hourly profit today */}
-        <div className="vm-glass rounded-2xl p-6 vm-rise">
+        <TiltCard maxTilt={4} className="vm-glass rounded-2xl p-6 vm-rise vm-chart-glow">
           <h3 className="font-bold text-lg text-white mb-1 flex items-center gap-2">
             <Zap className="text-amber-400" size={20} /> Hourly Profit
           </h3>
@@ -277,10 +307,10 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
               </BarChart>
             </ResponsiveContainer>
           </div>
-        </div>
+        </TiltCard>
 
         {/* Top products by profit */}
-        <div className="vm-glass rounded-2xl p-6 vm-rise">
+        <TiltCard maxTilt={4} className="vm-glass rounded-2xl p-6 vm-rise">
           <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2">
             <Award className="text-emerald-400" size={20} /> Top Profit Drivers
           </h3>
@@ -294,7 +324,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
                     }`}>{idx + 1}</span>
                     <span className="truncate">{p.name}</span>
                   </span>
-                  <span className="text-emerald-300 font-bold">{formatRM(p.profit)}</span>
+                  <span className="text-emerald-300 font-bold font-mono-num">{formatRM(p.profit)}</span>
                 </div>
                 <div className="h-1.5 rounded-full bg-white/5 overflow-hidden">
                   <div className="h-full rounded-full bg-gradient-to-r from-emerald-400 to-cyan-400"
@@ -303,10 +333,10 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
               </div>
             )) : <p className="text-center text-slate-500 text-sm py-10">No sales in this period.</p>}
           </div>
-        </div>
+        </TiltCard>
 
         {/* Margin gauge */}
-        <div className="vm-glass rounded-2xl p-6 vm-rise relative overflow-hidden">
+        <TiltCard maxTilt={4} className="vm-glass rounded-2xl p-6 vm-rise relative overflow-hidden">
           <h3 className="font-bold text-lg text-white mb-4 flex items-center gap-2">
             <Gauge className="text-cyan-400" size={20} /> Net Margin · Month
           </h3>
@@ -323,21 +353,21 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
               </RadialBarChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-              <span className="text-4xl font-black vm-text-gradient">{m.month.margin.toFixed(1)}%</span>
+              <span className="text-4xl font-black vm-text-gradient font-mono-num">{m.month.margin.toFixed(1)}%</span>
               <span className="text-[10px] uppercase tracking-widest text-slate-400">Gross Margin</span>
             </div>
           </div>
           <div className="grid grid-cols-2 gap-2 mt-2 text-center">
             <div className="bg-white/5 rounded-xl py-2">
               <p className="text-[10px] uppercase text-slate-400">Revenue</p>
-              <p className="text-sm font-bold text-white">{formatCompactRM(m.month.revenue)}</p>
+              <p className="text-sm font-bold text-white font-mono-num">{formatCompactRM(m.month.revenue)}</p>
             </div>
             <div className="bg-white/5 rounded-xl py-2">
               <p className="text-[10px] uppercase text-slate-400">COGS</p>
-              <p className="text-sm font-bold text-rose-300">{formatCompactRM(m.month.cost)}</p>
+              <p className="text-sm font-bold text-rose-300 font-mono-num">{formatCompactRM(m.month.cost)}</p>
             </div>
           </div>
-        </div>
+        </TiltCard>
       </div>
 
       {/* ============ INSIGHT FOOTER ============ */}
@@ -359,7 +389,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, onDataImported }) =
               note="Today vs yesterday (same time)" />
           </div>
           <div className="mt-6 pt-4 border-t border-white/10 flex justify-between items-center text-xs text-slate-400">
-            <span>VMMS Profit Engine · v3.0</span>
+            <span>VMMS Profit Engine · v4.0</span>
             <span className="flex items-center gap-1.5 bg-emerald-500/10 px-2 py-1 rounded-full text-emerald-300 border border-emerald-500/20">
               <span className="w-1.5 h-1.5 bg-emerald-400 rounded-full vm-pulse text-emerald-400" /> Live
             </span>

@@ -63,6 +63,11 @@ export interface DashboardMetrics {
   all: PeriodStats;
   /** growth of today's revenue vs yesterday's (same-time), percentage */
   todayVsYesterdayPct: number;
+  /** how far into the "trading day" we are, 0-100 (based on wall-clock hours elapsed since midnight) */
+  dayProgressPct: number;
+  /** naive linear pace projection: if today continues at its current hourly rate, where profit/revenue land by midnight */
+  projectedEodProfit: number;
+  projectedEodRevenue: number;
   hourlyToday: SeriesPoint[];   // 24 buckets, 00:00 .. 23:00
   last7Days: SeriesPoint[];     // rolling 7 days ending today
   last12Months: SeriesPoint[];  // rolling 12 months ending this month
@@ -323,9 +328,18 @@ export const computeDashboardMetrics = (
     ? round(((today.revenue - yesterday.revenue) / yesterday.revenue) * 100)
     : (today.revenue > 0 ? 100 : 0);
 
+  // Pace projection: naive linear extrapolation of today's rate to a full 24h day.
+  const hoursElapsed = Math.max(elapsedToday / 3_600_000, 1 / 60); // guard against div-by-0 in the first minute
+  const dayProgressPct = round(Math.min(100, (elapsedToday / 86400000) * 100));
+  const projectedEodRevenue = round((today.revenue / hoursElapsed) * 24);
+  const projectedEodProfit = round((today.profit / hoursElapsed) * 24);
+
   return {
     thisHour, today, week, month, all,
     todayVsYesterdayPct,
+    dayProgressPct,
+    projectedEodProfit,
+    projectedEodRevenue,
     hourlyToday: buildHourlyToday(txs, b.startOfToday),
     last7Days: buildLastNDays(txs, 7, reference),
     last12Months: buildLastNMonths(txs, 12, reference),
