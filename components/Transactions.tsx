@@ -84,12 +84,12 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
   // Helper Warna Badge Payment
   const getPaymentStyle = (method: string) => {
       const m = (method || '').toLowerCase();
-      if (m.includes('cash') || m.includes('tunai')) return 'bg-emerald-100 text-emerald-700 border-emerald-200';
-      if (m.includes('duitnow')) return 'bg-pink-100 text-pink-700 border-pink-200'; 
-      if (m.includes('mae')) return 'bg-amber-100 text-amber-700 border-amber-200'; 
-      if (m.includes('tng') || m.includes('touch')) return 'bg-blue-100 text-blue-700 border-blue-200'; 
-      if (m.includes('card')) return 'bg-purple-100 text-purple-700 border-purple-200';
-      return 'bg-slate-100 text-slate-600 border-slate-200';
+      if (m.includes('cash') || m.includes('tunai')) return 'bg-emerald-950/40 text-emerald-400 border-emerald-900/30';
+      if (m.includes('duitnow')) return 'bg-pink-950/40 text-pink-400 border-pink-900/30'; 
+      if (m.includes('mae')) return 'bg-amber-950/40 text-amber-400 border-amber-900/30'; 
+      if (m.includes('tng') || m.includes('touch')) return 'bg-blue-950/40 text-blue-400 border-blue-900/30'; 
+      if (m.includes('card')) return 'bg-purple-950/40 text-purple-400 border-purple-900/30';
+      return 'bg-slate-900/40 text-slate-400 border-slate-800/30';
   };
 
   // Fungsi Reset Date
@@ -102,13 +102,13 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
       
       {/* --- HEADER SECTION --- */}
-      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 border-b border-slate-200 pb-6">
+      <div className="flex flex-col xl:flex-row justify-between items-start xl:items-end gap-4 border-b border-white/10 pb-6">
         <div>
-          <h2 className="text-2xl font-bold text-slate-800 flex items-center gap-2">
-            <ShoppingCart className="text-indigo-600" />
+          <h2 className="text-2xl font-bold text-white flex items-center gap-2">
+            <ShoppingCart className="text-indigo-400" />
             Sejarah Transaksi
           </h2>
-          <p className="text-sm text-slate-500 mt-1">
+          <p className="text-sm text-slate-400 mt-1">
             Menunjukkan {filtered.length} rekod transaksi.
           </p>
         </div>
@@ -117,26 +117,26 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
         <div className="flex flex-col lg:flex-row gap-3 w-full xl:w-auto">
           
           {/* DATE RANGE PICKER */}
-          <div className="flex items-center gap-2 bg-white p-1 rounded-xl border border-slate-200 shadow-sm">
+          <div className="flex items-center gap-2 bg-slate-900/60 p-1 rounded-xl border border-slate-700/50">
              <div className="relative group">
                 <input 
                     type="date" 
                     value={startDate}
                     onChange={(e) => setStartDate(e.target.value)}
-                    className="pl-3 pr-2 py-1.5 text-xs font-bold text-slate-600 bg-transparent outline-none cursor-pointer uppercase"
+                    className="pl-3 pr-2 py-1.5 text-xs font-bold text-slate-300 bg-transparent outline-none cursor-pointer uppercase"
                 />
              </div>
-             <span className="text-slate-300">-</span>
+             <span className="text-slate-500">-</span>
              <div className="relative group">
                 <input 
                     type="date" 
                     value={endDate}
                     onChange={(e) => setEndDate(e.target.value)}
-                    className="pl-2 pr-3 py-1.5 text-xs font-bold text-slate-600 bg-transparent outline-none cursor-pointer uppercase"
+                    className="pl-2 pr-3 py-1.5 text-xs font-bold text-slate-300 bg-transparent outline-none cursor-pointer uppercase"
                 />
              </div>
              {(startDate || endDate) && (
-                 <button onClick={clearDates} className="p-1 hover:bg-slate-100 rounded-full text-slate-400 hover:text-red-500 transition-colors">
+                 <button onClick={clearDates} className="p-1 hover:bg-slate-800 rounded-full text-slate-400 hover:text-red-400 transition-colors">
                      <XCircle size={14} />
                  </button>
              )}
@@ -145,12 +145,12 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
           {/* SEARCH BOX */}
           <div className="relative group flex-1 lg:w-64">
             <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-              <Search className="h-4 w-4 text-slate-400 group-focus-within:text-indigo-500 transition-colors" />
+              <Search className="h-4 w-4 text-slate-400 group-focus-within:text-indigo-400 transition-colors" />
             </div>
             <input 
               type="text" 
               placeholder="Cari Ref, Produk..." 
-              className="pl-10 pr-4 py-2.5 w-full border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all shadow-sm"
+              className="pl-10 pr-4 py-2.5 w-full border border-slate-700/50 rounded-xl text-sm bg-slate-900/60 text-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -162,7 +162,7 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
                 <Filter className="h-4 w-4 text-slate-400" />
              </div>
              <select 
-                className="pl-10 pr-8 py-2.5 w-full border border-slate-200 rounded-xl text-sm bg-white focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none appearance-none cursor-pointer shadow-sm font-medium text-slate-600"
+                className="pl-10 pr-8 py-2.5 w-full border border-slate-700/50 rounded-xl text-sm bg-slate-900/60 text-slate-200 focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none appearance-none cursor-pointer font-medium"
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
              >
@@ -178,25 +178,25 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
       </div>
 
       {/* --- TABLE SECTION --- */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-lg shadow-slate-100 overflow-hidden flex flex-col min-h-[500px]">
+      <div className="vm-glass rounded-2xl overflow-hidden flex flex-col min-h-[500px]">
         <div className="overflow-x-auto flex-1">
           <table className="w-full text-sm text-left">
-            <thead className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-xs tracking-wider sticky top-0">
+            <thead className="bg-slate-900/60 border-b border-slate-700/50 text-slate-300 font-bold uppercase text-xs tracking-wider sticky top-0">
               <tr>
-                <th className="px-6 py-4 rounded-tl-lg">Tarikh & Masa</th>
+                <th className="px-6 py-4">Tarikh & Masa</th>
                 <th className="px-6 py-4">Info Transaksi</th>
                 <th className="px-6 py-4">Mesin / Lokasi</th>
                 <th className="px-6 py-4">Item</th>
                 <th className="px-6 py-4">Kaedah Bayaran</th>
-                <th className="px-6 py-4 text-right rounded-tr-lg">Amaun</th>
+                <th className="px-6 py-4 text-right">Amaun</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody className="divide-y divide-slate-800/40">
               {currentItems.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-6 py-12 text-center">
-                    <div className="flex flex-col items-center justify-center text-slate-400">
-                        <div className="p-4 bg-slate-50 rounded-full mb-3">
+                    <div className="flex flex-col items-center justify-center text-slate-500">
+                        <div className="p-4 bg-slate-900/40 rounded-full mb-3 border border-slate-800/50">
                             <Search size={32} className="opacity-50" />
                         </div>
                         <p className="font-medium">Tiada rekod dijumpai.</p>
@@ -206,19 +206,19 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
                 </tr>
               ) : (
                 currentItems.map((t, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50/80 transition-colors group">
+                  <tr key={idx} className="hover:bg-white/5 transition-colors group border-b border-slate-800/40">
                     
                     {/* TARIKH */}
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center gap-3">
-                        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg group-hover:bg-indigo-100 transition-colors">
+                        <div className="p-2 bg-indigo-950/40 text-indigo-400 rounded-lg group-hover:bg-indigo-900/20 transition-colors border border-indigo-900/30">
                             <Calendar size={16} />
                         </div>
                         <div className="flex flex-col">
-                            <span className="font-bold text-slate-700">
+                            <span className="font-bold text-slate-200">
                                 {new Date(t.timestamp).toLocaleDateString('en-MY', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </span>
-                            <span className="text-xs text-slate-400 font-medium">
+                            <span className="text-xs text-slate-500 font-medium">
                                 {new Date(t.timestamp).toLocaleTimeString('en-MY', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                         </div>
@@ -228,19 +228,19 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
                     {/* INFO TRANSAKSI */}
                     <td className="px-6 py-4">
                         <div className="flex flex-col">
-                            <div className="flex items-center gap-1.5 text-slate-600">
-                                <Hash size={12} className="text-slate-400" />
+                            <div className="flex items-center gap-1.5 text-slate-300">
+                                <Hash size={12} className="text-slate-500" />
                                 <span className="font-mono text-xs">{t.refNo}</span>
                             </div>
-                            <span className="text-[10px] text-slate-400 mt-0.5">ID: {t.id ? t.id.substring(0,8) : '-'}...</span>
+                            <span className="text-[10px] text-slate-500 mt-0.5">ID: {t.id ? t.id.substring(0,8) : '-'}...</span>
                         </div>
                     </td>
 
                     {/* MESIN */}
                     <td className="px-6 py-4">
                         <div className="flex items-center gap-2">
-                            <Monitor size={14} className="text-slate-400" />
-                            <span className="font-medium text-slate-700 truncate max-w-[140px]" title={t.machineId}>
+                            <Monitor size={14} className="text-slate-500" />
+                            <span className="font-medium text-slate-300 truncate max-w-[140px]" title={t.machineId}>
                                 {t.machineId || 'Unknown Machine'}
                             </span>
                         </div>
@@ -248,7 +248,7 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
 
                     {/* PRODUK */}
                     <td className="px-6 py-4">
-                        <span className="font-semibold text-slate-700">{t.productName || 'Item'}</span>
+                        <span className="font-semibold text-slate-200">{t.productName || 'Item'}</span>
                     </td>
 
                     {/* PAYMENT METHOD */}
@@ -261,9 +261,9 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
 
                     {/* AMOUNT */}
                     <td className="px-6 py-4 text-right">
-                        <div className="flex items-center justify-end gap-1 font-bold text-slate-800">
+                        <div className="flex items-center justify-end gap-1 font-bold text-slate-200">
                             {formatRM(t.amount)}
-                            <div className="text-emerald-500 bg-emerald-50 rounded-full p-0.5">
+                            <div className="text-emerald-400 bg-emerald-950/40 rounded-full p-0.5 border border-emerald-900/30">
                                 <ArrowDownRight size={12} />
                             </div>
                         </div>
@@ -278,11 +278,11 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
         
         {/* --- PAGINATION FOOTER (BARU) --- */}
         {filtered.length > 0 && (
-            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
+            <div className="px-6 py-4 bg-slate-900/40 border-t border-slate-800/40 flex flex-col sm:flex-row items-center justify-between gap-4">
                 
                 {/* Info Text */}
-                <div className="text-xs text-slate-500 font-medium">
-                    Menunjukkan <span className="font-bold text-slate-700">{indexOfFirstItem + 1}</span> hingga <span className="font-bold text-slate-700">{Math.min(indexOfLastItem, filtered.length)}</span> daripada <span className="font-bold text-slate-700">{filtered.length}</span> rekod
+                <div className="text-xs text-slate-400 font-medium">
+                    Menunjukkan <span className="font-bold text-slate-200">{indexOfFirstItem + 1}</span> hingga <span className="font-bold text-slate-200">{Math.min(indexOfLastItem, filtered.length)}</span> daripada <span className="font-bold text-slate-200">{filtered.length}</span> rekod
                 </div>
 
                 {/* Pagination Controls */}
@@ -292,7 +292,7 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
                     <button 
                         onClick={() => handlePageChange(1)}
                         disabled={currentPage === 1}
-                        className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="p-2 rounded-lg border border-slate-700/50 bg-slate-900/60 text-slate-300 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Halaman Pertama"
                     >
                         <ChevronsLeft size={16} />
@@ -302,13 +302,13 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
                     <button 
                         onClick={() => handlePageChange(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="p-2 rounded-lg border border-slate-700/50 bg-slate-900/60 text-slate-300 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <ChevronLeft size={16} />
                     </button>
 
                     {/* Page Indicator */}
-                    <span className="px-4 py-2 bg-indigo-50 border border-indigo-100 text-indigo-700 font-bold text-xs rounded-lg shadow-sm">
+                    <span className="px-4 py-2 bg-indigo-950/40 border border-indigo-900/30 text-indigo-400 font-bold text-xs rounded-lg shadow-sm">
                         Muka {currentPage} / {totalPages}
                     </span>
 
@@ -316,7 +316,7 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
                     <button 
                         onClick={() => handlePageChange(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="p-2 rounded-lg border border-slate-700/50 bg-slate-900/60 text-slate-300 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     >
                         <ChevronRight size={16} />
                     </button>
@@ -325,7 +325,7 @@ const Transactions: React.FC<TransactionsProps> = ({ transactions }) => {
                     <button 
                         onClick={() => handlePageChange(totalPages)}
                         disabled={currentPage === totalPages}
-                        className="p-2 rounded-lg border border-slate-200 bg-white text-slate-600 hover:bg-slate-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                        className="p-2 rounded-lg border border-slate-700/50 bg-slate-900/60 text-slate-300 hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                         title="Halaman Terakhir"
                     >
                         <ChevronsRight size={16} />
