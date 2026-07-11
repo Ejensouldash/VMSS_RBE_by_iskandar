@@ -498,7 +498,7 @@ export const updateSlotConfig = (slotId: string, updates: { name?: string, price
 
 export const getTransactions = async (): Promise<Transaction[]> => {
   try {
-    const { data, error } = await supabase.from('transactions').select('*').order('timestamp', { ascending: false });
+    const { data, error } = await supabase.from('transactions').select('*').order('timestamp', { ascending: false }).limit(20000);
     if (error) throw error;
     return data || [];
   } catch (err) {

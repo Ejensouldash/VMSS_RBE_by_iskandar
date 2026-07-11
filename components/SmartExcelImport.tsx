@@ -73,6 +73,15 @@ const GEMINI_PARSER = {
                     MM = String(dObj.getMonth() + 1).padStart(2, '0');
                     DD = String(dObj.getDate()).padStart(2, '0');
                 }
+                
+                // --- PROSES MASA DARI PECAHAN (FRACTION) ---
+                const fraction = rawDate - Math.floor(rawDate);
+                if (fraction > 0) {
+                    const totalSeconds = Math.round(fraction * 86400);
+                    HH = Math.floor(totalSeconds / 3600);
+                    MIN = Math.floor((totalSeconds % 3600) / 60);
+                    SEC = totalSeconds % 60;
+                }
             } else {
                 const dStr = String(rawDate).trim().replace(/[\r\n]+/g, '');
                 const dParts = dStr.split(/[\/\-\.]/);
