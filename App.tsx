@@ -49,6 +49,8 @@ const App: React.FC = () => {
 
   // --- APP STATE ---
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [isAnalyticsHovered, setIsAnalyticsHovered] = useState(false);
+  const [isAnalyticsClicked, setIsAnalyticsClicked] = useState(false);
   const { transactions, loading, lastUpdated, refresh } = useTransactionSync([]);
   const [inventory, setInventory] = useState<ProductSlot[]>([]);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -167,33 +169,38 @@ const App: React.FC = () => {
         {/* Navigation Scroll Area */}
         <div className="flex-1 overflow-y-auto py-6 px-3 space-y-1 custom-scrollbar">
           
-          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-4 mb-2 mt-2">Operations</div>
-          {/* SAYA DAH UBAH LABEL KE STRING BIASA SUPAYA SENTIASA KELUAR */}
           <NavItem id="dashboard" icon={LayoutDashboard} label="Overview Dashboard" />
-          <NavItem id="status" icon={Monitor} label="Live Monitoring" />
-          <NavItem id="inventory" icon={Package} label="Machine Stock" />
-          <NavItem id="alarms" icon={Bell} label="Alarms & Tickets" />
           
-          {userRole === 'super_admin' && (
-            <>
-              <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-4 mb-2 mt-6">Logistics</div>
-              <NavItem id="warehouse" icon={Building2} label="Central Warehouse" />
-              <NavItem id="logistics" icon={Truck} label="Route Planning" /> {/* <-- INI YANG HILANG DULU */}
-              <NavItem id="suppliers" icon={UserCircle} label="Supplier PO" />
-            </>
-          )}
-
-          <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-4 mb-2 mt-6">Analytics</div>
-          <NavItem id="sales_analytics" icon={BarChart3} label="Sales Analytics" />
-          <NavItem id="history" icon={List} label="Transaction History" /> {/* <-- INI YANG HILANG DULU */}
-          <NavItem id="financials" icon={CreditCard} label="Financial Reports" />
-          <NavItem id="compliance" icon={ShieldCheck} label="Audit & Compliance" />
+          <div 
+            className="group/analytics"
+            onMouseEnter={() => setIsAnalyticsHovered(true)}
+            onMouseLeave={() => setIsAnalyticsHovered(false)}
+          >
+            <button
+              onClick={() => setIsAnalyticsClicked(prev => !prev)}
+              className="w-full flex items-center justify-between px-4 py-3 rounded-lg text-slate-400 hover:bg-white/5 hover:text-white transition-all duration-200"
+            >
+              <div className="flex items-center space-x-3">
+                <BarChart3 size={20} className={['sales_analytics', 'history', 'financials', 'compliance'].includes(activeTab) ? 'text-white' : 'text-slate-400 group-hover/analytics:text-cyan-300'} />
+                <span className="font-medium">Analytics</span>
+              </div>
+              <ChevronDown 
+                size={14} 
+                className={`transform transition-transform duration-200 ${(isAnalyticsHovered || isAnalyticsClicked || ['sales_analytics', 'history', 'financials', 'compliance'].includes(activeTab)) ? 'rotate-180 text-cyan-400' : 'text-slate-500'}`} 
+              />
+            </button>
+            
+            <div className={`overflow-hidden transition-all duration-300 pl-4 ${(isAnalyticsHovered || isAnalyticsClicked || ['sales_analytics', 'history', 'financials', 'compliance'].includes(activeTab)) ? 'max-h-[300px] opacity-100 mt-1 space-y-1' : 'max-h-0 opacity-0'}`}>
+              <NavItem id="sales_analytics" icon={BarChart3} label="Sales Analytics" />
+              <NavItem id="history" icon={List} label="Transaction History" />
+              <NavItem id="financials" icon={CreditCard} label="Financial Reports" />
+              <NavItem id="compliance" icon={ShieldCheck} label="Audit & Compliance" />
+            </div>
+          </div>
           
           {userRole === 'super_admin' && (
             <>
               <div className="text-xs font-bold text-slate-500 uppercase tracking-wider px-4 mb-2 mt-6">System</div>
-              <NavItem id="planogram" icon={Scan} label="Planogram Map" />
-              <NavItem id="simulator" icon={RefreshCw} label="System Simulator" />
               <NavItem id="settings" icon={Settings} label="Super Settings" />
             </>
           )}
