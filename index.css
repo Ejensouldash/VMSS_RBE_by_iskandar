@@ -1,314 +1,242 @@
 /* =====================================================================
-   VMMS.PRO  —  Futuristic HUD / Mission-Control Theme  (v4)
-   Global styles layered on top of the Tailwind CDN build.
+   VMMS — Modern Calm Operations Design System (v5)
+   Inspired by Linear, Stripe, and Vercel.
+   Focused on operational density, calm dark surfaces, and clear hierarchy.
    ===================================================================== */
 
 :root {
-  --vm-bg: #030712;
-  --vm-bg-soft: #0a0f1e;
-  --vm-panel: rgba(13, 20, 38, 0.6);
-  --vm-panel-solid: #0d1426;
-  --vm-border: rgba(110, 140, 255, 0.14);
-  --vm-cyan: #22d3ee;
-  --vm-indigo: #6366f1;
-  --vm-violet: #a855f7;
-  --vm-emerald: #10b981;
-  --vm-amber: #f59e0b;
-  --vm-rose: #fb7185;
+  --bg-canvas: #090d16;
+  --bg-canvas-soft: #0c1220;
+  --bg-surface: #0f172a;
+  --bg-surface-elevated: #131c31;
+  --bg-surface-subtle: #1e293b;
+  
+  --border-subtle: #1e293b;
+  --border-default: #334155;
+  --border-active: #3b82f6;
+  
+  --text-primary: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  
+  --brand-blue: #3b82f6;
+  --brand-blue-hover: #2563eb;
+  --brand-blue-subtle: rgba(59, 130, 246, 0.1);
+  
+  --status-emerald: #10b981;
+  --status-emerald-bg: rgba(16, 185, 129, 0.1);
+  --status-emerald-border: rgba(16, 185, 129, 0.25);
+  
+  --status-amber: #f59e0b;
+  --status-amber-bg: rgba(245, 158, 11, 0.1);
+  --status-amber-border: rgba(245, 158, 11, 0.25);
+  
+  --status-rose: #f43f5e;
+  --status-rose-bg: rgba(244, 63, 94, 0.1);
+  --status-rose-border: rgba(244, 63, 94, 0.25);
 }
 
-html { scroll-behavior: smooth; }
+html {
+  scroll-behavior: smooth;
+  color-scheme: dark;
+}
 
-.font-display { font-family: 'Space Grotesk', 'Inter', sans-serif; }
-.font-mono-num { font-family: 'JetBrains Mono', ui-monospace, monospace; font-feature-settings: "tnum"; }
+body {
+  background-color: var(--bg-canvas);
+  color: var(--text-primary);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
 
-/* =====================================================================
-   BACKDROP — deep space, aurora glow, drifting grid, scanlines
-   ===================================================================== */
-.vm-app-bg {
-  background-color: var(--vm-bg);
-  background-image:
-    radial-gradient(circle at 12% -8%, rgba(99, 102, 241, 0.22), transparent 42%),
-    radial-gradient(circle at 105% 0%, rgba(168, 85, 247, 0.16), transparent 38%),
-    radial-gradient(circle at 50% 115%, rgba(34, 211, 238, 0.14), transparent 42%),
-    radial-gradient(circle at 80% 60%, rgba(16, 185, 129, 0.07), transparent 40%);
-  position: relative;
-  isolation: isolate;
-}
-.vm-grid::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background-image:
-    linear-gradient(rgba(110, 140, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(110, 140, 255, 0.06) 1px, transparent 1px);
-  background-size: 42px 42px;
-  mask-image: radial-gradient(circle at 50% 20%, #000 0%, transparent 75%);
-  pointer-events: none;
-  animation: vm-grid-drift 40s linear infinite;
-  z-index: 0;
-}
-@keyframes vm-grid-drift {
-  0% { background-position: 0 0; }
-  100% { background-position: 84px 84px; }
-}
-/* Faint scanline sweep across the whole app for a "live feed" feel */
-.vm-scanlines::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: repeating-linear-gradient(
-    to bottom,
-    transparent 0px,
-    rgba(255, 255, 255, 0.012) 1px,
-    transparent 2px
-  );
-  pointer-events: none;
-  z-index: 1;
+.font-mono-code {
+  font-family: 'JetBrains Mono', 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-feature-settings: "tnum";
 }
 
 /* =====================================================================
-   GLASS PANELS
+   SURFACES & CARDS
    ===================================================================== */
-.vm-glass {
-  background: var(--vm-panel);
-  border: 1px solid var(--vm-border);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: 0 8px 40px rgba(2, 6, 23, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+.op-card {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
-.vm-glass-hover { transition: transform .4s cubic-bezier(.2,.7,.3,1), box-shadow .4s ease, border-color .4s ease; }
-.vm-glass-hover:hover {
-  transform: translateY(-4px);
-  border-color: rgba(110, 140, 255, 0.4);
-  box-shadow: 0 20px 60px rgba(56, 89, 255, 0.24), inset 0 1px 0 rgba(255,255,255,.07);
+
+.op-card:hover {
+  border-color: var(--border-default);
+}
+
+.op-card-interactive {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: 0.75rem;
+  transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.op-card-interactive:hover {
+  border-color: var(--border-default);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.op-surface-elevated {
+  background-color: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
 }
 
 /* =====================================================================
-   3D TILT CARD — pairs with onMouseMove JS setting --rx/--ry/--mx/--my
+   BUTTONS & CONTROLS
    ===================================================================== */
-.vm-tilt {
-  transform: perspective(900px) rotateX(var(--ry, 0deg)) rotateY(var(--rx, 0deg)) translateZ(0);
-  transition: transform .12s ease-out, border-color .3s ease, box-shadow .3s ease;
-  will-change: transform;
+.op-btn-primary {
+  background-color: var(--brand-blue);
+  color: #ffffff;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.15s ease, transform 0.1s ease;
 }
-.vm-tilt::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  background: radial-gradient(280px circle at var(--mx, 50%) var(--my, 50%), rgba(120, 160, 255, 0.16), transparent 70%);
-  opacity: 0;
-  transition: opacity .3s ease;
-  pointer-events: none;
-}
-.vm-tilt:hover::before { opacity: 1; }
 
-/* =====================================================================
-   CONIC SPIN BORDER — animated rotating gradient ring (for hero panels)
-   ===================================================================== */
-.vm-spin-border {
-  position: relative;
-  border-radius: inherit;
+.op-btn-primary:hover {
+  background-color: var(--brand-blue-hover);
 }
-.vm-spin-border::before {
-  content: "";
-  position: absolute;
-  inset: -2px;
-  border-radius: inherit;
-  background: conic-gradient(from 0deg, var(--vm-cyan), var(--vm-indigo), var(--vm-violet), var(--vm-emerald), var(--vm-cyan));
-  animation: vm-spin 5s linear infinite;
-  z-index: -1;
-  filter: blur(1px);
-}
-.vm-spin-border::after {
-  content: "";
-  position: absolute;
-  inset: 1px;
-  border-radius: inherit;
-  background: var(--vm-panel-solid);
-  z-index: -1;
-}
-@keyframes vm-spin { to { transform: rotate(360deg); } }
 
-/* ---- Slimmer animated border for standard cards ---- */
-.vm-neon { position: relative; }
-.vm-neon::after {
-  content: "";
-  position: absolute;
-  inset: -1px;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(120deg, var(--vm-cyan), var(--vm-indigo), var(--vm-violet), var(--vm-cyan));
-  background-size: 300% 300%;
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask-composite: exclude;
-  animation: vm-border-flow 6s linear infinite;
-  opacity: .6;
-  pointer-events: none;
+.op-btn-secondary {
+  background-color: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  font-weight: 500;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
 }
-@keyframes vm-border-flow {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 300% 50%; }
+
+.op-btn-secondary:hover {
+  background-color: var(--bg-surface-subtle);
+  border-color: var(--border-default);
+}
+
+.op-btn-ghost {
+  color: var(--text-secondary);
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.75rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  transition: color 0.15s ease, background-color 0.15s ease;
+}
+
+.op-btn-ghost:hover {
+  color: var(--text-primary);
+  background-color: rgba(255, 255, 255, 0.05);
 }
 
 /* =====================================================================
-   TEXT GRADIENT + GLOW NUMERALS
+   STATUS PILLS & BADGES
    ===================================================================== */
-.vm-text-gradient {
-  background: linear-gradient(90deg, #e0e7ff, #67e8f9 40%, #c4b5fd 80%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  color: transparent;
-}
-.vm-glow-text-cyan { text-shadow: 0 0 18px rgba(34, 211, 238, .55), 0 0 40px rgba(34, 211, 238, .25); }
-.vm-glow-text-emerald { text-shadow: 0 0 18px rgba(16, 185, 129, .55), 0 0 40px rgba(16, 185, 129, .25); }
-.vm-glow-text-violet { text-shadow: 0 0 18px rgba(168, 85, 247, .5), 0 0 40px rgba(168, 85, 247, .22); }
-
-/* =====================================================================
-   GLOW UTILITIES / RINGS
-   ===================================================================== */
-.vm-glow-cyan { box-shadow: 0 0 28px rgba(34, 211, 238, .38); }
-.vm-glow-indigo { box-shadow: 0 0 28px rgba(99, 102, 241, .42); }
-.vm-glow-emerald { box-shadow: 0 0 28px rgba(16, 185, 129, .38); }
-.vm-glow-violet { box-shadow: 0 0 28px rgba(168, 85, 247, .38); }
-.vm-glow-amber { box-shadow: 0 0 28px rgba(245, 158, 11, .38); }
-
-/* =====================================================================
-   REACTOR CORE — the big "Today's Profit" centerpiece
-   ===================================================================== */
-.vm-reactor {
-  position: relative;
-  width: 220px;
-  height: 220px;
-}
-.vm-reactor-ring {
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  border: 1.5px solid rgba(34, 211, 238, 0.25);
-}
-.vm-reactor-ring.r2 { inset: 14px; border-color: rgba(99, 102, 241, 0.3); animation: vm-spin 14s linear infinite; border-style: dashed; }
-.vm-reactor-ring.r3 { inset: 28px; border-color: rgba(168, 85, 247, 0.35); animation: vm-spin 22s linear infinite reverse; }
-.vm-reactor-core {
-  position: absolute;
-  inset: 42px;
-  border-radius: 50%;
-  background: radial-gradient(circle at 40% 30%, rgba(34,211,238,.35), rgba(99,102,241,.18) 55%, transparent 80%);
-  box-shadow: 0 0 60px rgba(34, 211, 238, .45), 0 0 120px rgba(99, 102, 241, .25), inset 0 0 40px rgba(34,211,238,.2);
-  animation: vm-pulse-core 3.2s ease-in-out infinite;
-}
-@keyframes vm-pulse-core {
-  0%, 100% { transform: scale(1); opacity: .9; }
-  50% { transform: scale(1.05); opacity: 1; }
-}
-@keyframes vm-spin { to { transform: rotate(360deg); } }
-
-/* =====================================================================
-   LIVE PULSE DOT
-   ===================================================================== */
-.vm-pulse { position: relative; }
-.vm-pulse::before {
-  content: "";
-  position: absolute;
-  inset: -4px;
-  border-radius: 9999px;
-  background: currentColor;
-  opacity: .5;
-  animation: vm-ping 1.6s cubic-bezier(0,0,.2,1) infinite;
-}
-@keyframes vm-ping { 75%, 100% { transform: scale(2.4); opacity: 0; } }
-
-/* =====================================================================
-   FLOATING / SHIMMER / ENTRANCE
-   ===================================================================== */
-@keyframes vm-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
-.vm-float { animation: vm-float 6s ease-in-out infinite; }
-
-@keyframes vm-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
-.vm-shimmer {
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,.08), transparent);
-  background-size: 200% 100%;
-  animation: vm-shimmer 2.2s infinite;
+.op-pill-emerald {
+  color: var(--status-emerald);
+  background-color: var(--status-emerald-bg);
+  border: 1px solid var(--status-emerald-border);
 }
 
-@keyframes vm-rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
-.vm-rise { animation: vm-rise .65s cubic-bezier(.2,.7,.3,1) both; }
-.vm-rise-1 { animation-delay: .05s; } .vm-rise-2 { animation-delay: .12s; }
-.vm-rise-3 { animation-delay: .19s; } .vm-rise-4 { animation-delay: .26s; }
-.vm-rise-5 { animation-delay: .33s; } .vm-rise-6 { animation-delay: .40s; }
-
-/* Odometer-ish number tick (used with key-based remount) */
-@keyframes vm-tick { from { opacity: 0; transform: translateY(6px); filter: blur(2px); } to { opacity: 1; transform: translateY(0); filter: blur(0); } }
-.vm-tick { animation: vm-tick .4s ease-out both; }
-
-/* =====================================================================
-   LIVE TICKER — horizontal marquee for recent transactions
-   ===================================================================== */
-.vm-ticker-track {
-  display: flex;
-  gap: 2.5rem;
-  white-space: nowrap;
-  animation: vm-ticker-scroll 32s linear infinite;
+.op-pill-amber {
+  color: var(--status-amber);
+  background-color: var(--status-amber-bg);
+  border: 1px solid var(--status-amber-border);
 }
-.vm-ticker-wrap:hover .vm-ticker-track { animation-play-state: paused; }
-@keyframes vm-ticker-scroll {
-  from { transform: translateX(0); }
-  to { transform: translateX(-50%); }
+
+.op-pill-rose {
+  color: var(--status-rose);
+  background-color: var(--status-rose-bg);
+  border: 1px solid var(--status-rose-border);
+}
+
+.op-pill-blue {
+  color: var(--brand-blue);
+  background-color: var(--brand-blue-subtle);
+  border: 1px solid rgba(59, 130, 246, 0.25);
+}
+
+.op-pill-neutral {
+  color: var(--text-secondary);
+  background-color: rgba(148, 163, 184, 0.1);
+  border: 1px solid rgba(148, 163, 184, 0.2);
 }
 
 /* =====================================================================
-   BUTTONS
+   TABLES & LISTS
    ===================================================================== */
-.vm-btn-primary {
-  background: linear-gradient(135deg, var(--vm-indigo), var(--vm-cyan));
-  box-shadow: 0 8px 24px rgba(56, 89, 255, .35);
-  transition: transform .2s ease, box-shadow .2s ease, filter .2s ease;
+.op-table-header {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border-subtle);
 }
-.vm-btn-primary:hover { transform: translateY(-1px); filter: brightness(1.08); box-shadow: 0 10px 30px rgba(56, 89, 255, .45); }
-.vm-btn-primary:active { transform: translateY(0); }
 
-/* =====================================================================
-   SIDEBAR (matches HUD theme)
-   ===================================================================== */
-.vm-sidebar {
-  background: linear-gradient(180deg, #070c18 0%, #060a14 100%);
-  border-right: 1px solid rgba(110, 140, 255, 0.1);
+.op-table-row {
+  border-bottom: 1px solid rgba(30, 41, 59, 0.6);
+  transition: background-color 0.15s ease;
 }
-.vm-sidebar-active {
-  background: linear-gradient(90deg, rgba(99,102,241,.25), rgba(34,211,238,.18));
-  box-shadow: inset 0 0 0 1px rgba(110,140,255,.35), 0 0 20px rgba(56,89,255,.18);
+
+.op-table-row:hover {
+  background-color: rgba(255, 255, 255, 0.02);
+}
+
+.op-table-cell {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
 }
 
 /* =====================================================================
    CUSTOM SCROLLBAR
    ===================================================================== */
-.custom-scrollbar::-webkit-scrollbar, body ::-webkit-scrollbar { width: 8px; height: 8px; }
-.custom-scrollbar::-webkit-scrollbar-track, body ::-webkit-scrollbar-track { background: transparent; }
+.custom-scrollbar::-webkit-scrollbar, body ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track, body ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
 .custom-scrollbar::-webkit-scrollbar-thumb, body ::-webkit-scrollbar-thumb {
-  background: linear-gradient(180deg, rgba(99,102,241,.6), rgba(34,211,238,.6));
+  background: #334155;
   border-radius: 9999px;
 }
-.custom-scrollbar::-webkit-scrollbar-thumb:hover, body ::-webkit-scrollbar-thumb:hover { background: rgba(129,140,248,.9); }
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover, body ::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
 
 /* =====================================================================
-   RECHARTS — dark theme harmonisation + glow line
+   RECHARTS DARK THEME REFINEMENT
    ===================================================================== */
 .recharts-default-tooltip {
-  background: rgba(9, 14, 28, 0.95) !important;
-  border: 1px solid rgba(110, 140, 255, 0.3) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 12px 45px rgba(0,0,0,.6) !important;
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4) !important;
+  padding: 8px 12px !important;
 }
-.recharts-tooltip-label { color: #cbd5e1 !important; }
-.vm-chart-glow .recharts-area-curve { filter: drop-shadow(0 0 6px rgba(34, 211, 238, .5)); }
-.vm-chart-glow .recharts-line-curve { filter: drop-shadow(0 0 6px rgba(34, 211, 238, .6)); }
 
-/* Reduce motion for users who prefer it */
-@media (prefers-reduced-motion: reduce) {
-  .vm-grid::before, .vm-float, .vm-shimmer, .vm-reactor-ring, .vm-reactor-core,
-  .vm-neon::after, .vm-spin-border::before, .vm-ticker-track, .vm-pulse::before {
-    animation: none !important;
-  }
+.recharts-tooltip-label {
+  color: #94a3b8 !important;
+  font-size: 0.75rem !important;
+  margin-bottom: 4px !important;
+}
+
+.recharts-tooltip-item {
+  color: #f8fafc !important;
+  font-size: 0.8125rem !important;
 }
