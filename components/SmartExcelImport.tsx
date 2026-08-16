@@ -254,7 +254,7 @@ const SmartExcelImport: React.FC<SmartExcelImportProps> = ({ onDataImported }) =
 
             const txProdNameSafe = (tx.productName || '').toString().toLowerCase().trim();
             const matchedSlot = currentInventory.find(s => {
-                const slotNameSafe = (s.productName || '').toString().toLowerCase().trim();
+                const slotNameSafe = (s.productName || s.name || '').toString().toLowerCase().trim();
                 return slotNameSafe && (slotNameSafe === txProdNameSafe || txProdNameSafe.includes(slotNameSafe));
             });
 

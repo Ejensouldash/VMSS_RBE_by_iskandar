@@ -72,9 +72,9 @@ async function fetchWithCookie(url: string, cookie: string, opts: any = {}) {
   const res = await fetch(url, { method: opts.method || 'GET', headers, body: opts.body, cache: 'no-store' } as any);
   const text = await res.text();
   try {
-    return { ok: res.ok, json: JSON.parse(text), text };
+    return { ok: res.ok, json: JSON.parse(text), text, status: res.status };
   } catch (e) {
-    return { ok: res.ok, json: null, text };
+    return { ok: res.ok, json: null, text, status: res.status };
   }
 }
 

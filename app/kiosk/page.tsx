@@ -62,7 +62,7 @@ export default function KioskPage() {
                       <div className={`font-bold ${selectedSlot.id === slot.id ? 'text-indigo-900' : 'text-slate-700'}`}>
                         {slot.name}
                       </div>
-                      <div className="text-xs text-slate-400">Stok: {slot.currentStock || 10}</div>
+                      <div className="text-xs text-slate-400">Stok: {(slot as any).currentStock || (slot as any).initialStock || 10}</div>
                     </div>
                   </div>
                   <div className={`font-bold text-lg ${selectedSlot.id === slot.id ? 'text-indigo-600' : 'text-slate-600'}`}>

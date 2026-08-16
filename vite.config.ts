@@ -1,10 +1,11 @@
+/// <reference types="vitest" />
 import path from 'path';
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 
-export default defineConfig(({ mode }) => {
-    // Load env file based on `mode` in the current working directory.
-    const env = loadEnv(mode, '.', '');
+export default defineConfig((configEnv) => {
+    const mode = configEnv?.mode || 'development';
+    const env = loadEnv(mode, process.cwd(), '');
 
     return {
       server: {
@@ -74,6 +75,10 @@ export default defineConfig(({ mode }) => {
         alias: {
           '@': path.resolve(__dirname, '.'), 
         }
+      },
+      test: {
+        globals: true,
+        environment: 'node'
       }
     };
 });

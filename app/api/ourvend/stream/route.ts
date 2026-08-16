@@ -11,9 +11,11 @@ export async function GET(req: NextRequest) {
     Connection: 'keep-alive',
   });
 
+  let ping: any;
+  let onRecord: any;
   const stream = new ReadableStream({
     start(controller) {
-      const onRecord = (rec: any) => {
+      onRecord = (rec: any) => {
         try {
           const payload = JSON.stringify(rec);
           controller.enqueue(`data: ${payload}\n\n`);
@@ -25,12 +27,11 @@ export async function GET(req: NextRequest) {
       bus.on('record', onRecord);
 
       // keep-alive ping every 20s
-      const ping = setInterval(() => controller.enqueue('data: {"type":"ping"}\n\n'), 20000);
-
-      controller.onCancel = () => {
-        clearInterval(ping);
-        bus.off('record', onRecord);
-      };
+      ping = setInterval(() => controller.enqueue('data: {"type":"ping"}\n\n'), 20000);
+    },
+    cancel() {
+      if (ping) clearInterval(ping);
+      if (onRecord) bus.off('record', onRecord);
     }
   });
 
