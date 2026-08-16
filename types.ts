@@ -3,9 +3,12 @@ export interface ProductSlot {
   id: string;
   name: string;
   price: number;
+  initialStock?: number;
   maxCapacity: number;
   currentStock: number;
   expiryDate?: string;
+  cartonSize?: number;
+  productName?: string;
   image?: string;
 }
 
@@ -65,28 +68,86 @@ export interface PurchaseOrder {
   supplierName: string;
   date: string;
   status: 'PENDING' | 'APPROVED' | 'RECEIVED';
-  items: { sku: string; qty: number; cost: number }[];
-  totalAmount: number;
+  items: { sku: string; qty: number; cost: number }[] | string;
+  totalAmount?: number;
+  totalCost?: number;
+}
+
+// --- ROUTE PLANNING & LOGISTICS ---
+export interface RouteStop {
+  id?: string;
+  machineId?: string;
+  machineName?: string;
+  locationName?: string;
+  location?: string;
+  urgency?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | string;
+  distance?: string;
+  restockNeeded?: number;
+  requiredStock?: { sku: string; name: string; qty: number }[];
+  status: 'PENDING' | 'IN_TRANSIT' | 'COMPLETED';
+}
+
+export interface Location {
+  id: string;
+  name: string;
+  group?: string;
+  address: string;
+  type?: string;
+  machineCount?: number;
+  machines?: string[];
+  commissionRate?: number;
+  totalSales?: number;
+  picName?: string;
+}
+
+export interface Supplier {
+  id: string;
+  name: string;
+  contactPerson?: string;
+  contact?: string;
+  phone: string;
+  email: string;
+  rating?: number;
+  leadTimeDays: number;
+  paymentTerms?: string;
+  commodities?: string[];
+}
+
+export interface Commodity {
+  sku: string;
+  name: string;
+  supplierId?: string;
+  category?: string;
+  unit?: string;
+  costPrice: number;
+  retailPrice?: number;
+  salePrice?: number;
+  marginPct?: number;
+  lastOrderDate?: string;
+  cartonSize?: number;
 }
 
 // --- MAINTENANCE & TICKETS ---
 export interface ServiceTicket {
   id: string;
   machineId: string;
+  alarmId?: string;
   issue: string;
-  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  priority?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | string;
   status: 'OPEN' | 'IN_PROGRESS' | 'RESOLVED';
-  reportedBy: string;
+  reportedBy?: string;
   technician?: string;
-  createdAt: string;
+  createdAt?: string;
+  dispatchedAt?: string;
   resolvedAt?: string;
 }
 
 export interface Alarm {
   id: string;
   machineId: string;
-  type: 'TEMPERATURE' | 'STOCK' | 'POWER' | 'DOOR' | 'SYSTEM';
-  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
+  type?: 'TEMPERATURE' | 'STOCK' | 'POWER' | 'DOOR' | 'SYSTEM' | string;
+  severity: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL' | 'WARNING' | 'INFO';
+  errorCode?: string;
   message: string;
   timestamp: string;
   status: 'OPEN' | 'RESOLVED';
@@ -101,7 +162,7 @@ export interface Machine {
   group: string;
   signal: number; // 0-5 bars
   temp: number;   // Celsius
-  status: 'ONLINE' | 'OFFLINE' | 'ERROR';
+  status: 'ONLINE' | 'OFFLINE' | 'ERROR' | 'BOOTING';
   door: 'OPEN' | 'CLOSED';
   bill: 'OK' | 'LOW' | 'FULL' | 'JAMMED' | 'UNKNOWN';
   coin: 'OK' | 'LOW' | 'FULL' | 'JAMMED' | 'UNKNOWN';
@@ -129,4 +190,4 @@ export interface AuditLog {
   actor: string;
   action: string;
   details: string;
-}
+}

@@ -103,7 +103,7 @@ const getSimilarity = (s1: string, s2: string): number => {
   const shorter = s1.length > s2.length ? s2 : s1;
   if (longer.length === 0) return 1.0;
   
-  const costs = new Array();
+  const costs: number[] = [];
   for (let i = 0; i <= longer.length; i++) {
     let lastValue = i;
     for (let j = 0; j <= shorter.length; j++) {
@@ -119,7 +119,7 @@ const getSimilarity = (s1: string, s2: string): number => {
     }
     if (i > 0) costs[shorter.length] = lastValue;
   }
-  return (longer.length - costs[shorter.length]) / parseFloat(longer.length);
+  return (longer.length - costs[shorter.length]) / (longer.length || 1);
 }
 
 // Fungsi Mencari Kos Paling Padan
@@ -268,17 +268,22 @@ export const getMachines = async (): Promise<Machine[]> => {
   try {
     const { data, error } = await supabase.from('machines').select('*');
     if (error) throw error;
-    return data || [];
+    if (data && data.length > 0) {
+      localStorage.setItem(STORAGE_KEYS.MACHINES, JSON.stringify(data));
+      return data;
+    }
   } catch (err) {
     console.error('Error fetching machines:', err);
-    return [];
   }
+  const local = localStorage.getItem(STORAGE_KEYS.MACHINES);
+  return local ? JSON.parse(local) : INITIAL_MACHINES;
 };
 
-export const updateMachineStatus = (id: string, updates: Partial<Machine>) => {
-  const machines = getMachines();
+export const updateMachineStatus = async (id: string, updates: Partial<Machine>): Promise<Machine[]> => {
+  const machines = await getMachines();
   const updated = machines.map(m => m.id === id ? { ...m, ...updates, lastSync: 'Just now' } : m);
   localStorage.setItem(STORAGE_KEYS.MACHINES, JSON.stringify(updated));
+  pushToCloud(STORAGE_KEYS.MACHINES, updated);
   return updated;
 };
 
@@ -356,7 +361,9 @@ export const createServiceTicket = (ticket: ServiceTicket) => {
   localStorage.setItem(STORAGE_KEYS.TICKETS, JSON.stringify(tickets));
   pushToCloud(STORAGE_KEYS.TICKETS, tickets); 
   
-  updateAlarmStatus(ticket.alarmId, 'OPEN', ticket.technician);
+  if (ticket.alarmId) {
+    updateAlarmStatus(ticket.alarmId, 'OPEN', ticket.technician);
+  }
   logAction('admin', 'DISPATCH_TECH', `Ticket ${ticket.id} assigned to ${ticket.technician}`);
   notify(`Ticket #${ticket.id} dispatched to ${ticket.technician}`, 'success');
 };
@@ -366,16 +373,19 @@ export const getUsers = async (): Promise<any[]> => {
   try {
     const { data, error } = await supabase.from('sys_users').select('id, username, name, role, email, status, last_login, created_at');
     if (error) throw error;
-    return data || [];
+    if (data && data.length > 0) {
+      return data;
+    }
   } catch (err) {
     console.error('Error fetching users:', err);
-    return [];
   }
+  const local = localStorage.getItem(STORAGE_KEYS.USERS);
+  return local ? JSON.parse(local) : INITIAL_USERS;
 };
 
-export const saveUser = (user: User) => {
-  let users = getUsers();
-  const existingIdx = users.findIndex((u:any) => u.id === user.id);
+export const saveUser = async (user: User): Promise<boolean> => {
+  let users = await getUsers();
+  const existingIdx = users.findIndex((u: any) => u.id === user.id);
   
   if (existingIdx >= 0) {
     users[existingIdx] = user;

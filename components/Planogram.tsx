@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VM_CONFIG } from '../lib/vm-config';
 import { analyzePlanogram } from '../services/ai';
 import { getInventory, getTransactions } from '../services/db';

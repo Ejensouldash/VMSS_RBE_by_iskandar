@@ -1,3 +1,28 @@
+# Environment & Local Secrets
+.env
+.env.*
+!.env.example
+*.local
+
+# Local Session & Storage Artifacts
+session*.json
+public/session.json
+public/tcn-data/
+db.json
+*.dump
+*.sql.bak
+
+# Business Spreadsheets & Assets
+*.xlsx
+Asset/
+
+# Build outputs & Dependencies
+node_modules
+dist
+dist-ssr
+.next/
+out/
+
 # Logs
 logs
 *.log
@@ -6,11 +31,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
-
-node_modules
-dist
-dist-ssr
-*.local
 
 # Editor directories and files
 .vscode/*
@@ -22,3 +42,4 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
